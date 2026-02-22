@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "keywords": [
     "accounting",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^25.2.1",
     "@vitest/ui": "^4.0.18",
+    "gh-pages": "^6.3.0",
     "jsdom": "^28.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
