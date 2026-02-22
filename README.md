@@ -2,6 +2,8 @@
 
 A visual novel-style educational game that teaches accounting fundamentals through running a lemonade stand. Built with Phaser 3 and TypeScript.
 
+> Inspired by **"The Accounting Game: Basic Accounting Fresh from the Lemonade Stand"** by Darrell Mullis & Judith Orloff.
+
 ## Overview
 
 Players learn accounting concepts progressively across 10 chapters, starting from the basic accounting equation and advancing through income statements, accrual accounting, depreciation, and financial ratios. Every transaction is recorded using double-entry bookkeeping, and players can view both the Balance Sheet (BS) and Income Statement (P&L) in real time.
