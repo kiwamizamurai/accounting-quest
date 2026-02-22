@@ -3,7 +3,7 @@ import path from 'path';
 
 export default defineConfig(({ command }) => ({
   // Only use base path for production build (GitHub Pages)
-  base: command === 'build' ? '/accounting-game/' : '/',
+  base: command === 'build' ? '/accounting-quest/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
