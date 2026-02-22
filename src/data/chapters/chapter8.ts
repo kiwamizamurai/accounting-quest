@@ -1,0 +1,226 @@
+import { ChapterScript, ScriptNode } from '../../vn/types';
+
+const nodes: ScriptNode[] = [
+  // === Opening ===
+  {
+    id: 'start',
+    type: 'background',
+    background: 'home',
+    next: 'mentor_enter',
+  },
+  {
+    id: 'mentor_enter',
+    type: 'character_enter',
+    character: 'mentor',
+    position: 'right',
+    expression: 'thinking',
+    next: 'dialog_1',
+  },
+  {
+    id: 'dialog_1',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_1',
+    expression: 'thinking',
+    next: 'dialog_2',
+  },
+  {
+    id: 'dialog_2',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_2',
+    expression: 'normal',
+    next: 'dialog_3',
+  },
+  {
+    id: 'dialog_3',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_3',
+    expression: 'normal',
+    next: 'transition_to_stand',
+  },
+
+  // === Prepaid Expense ===
+  {
+    id: 'transition_to_stand',
+    type: 'background',
+    background: 'lemonade_stand',
+    next: 'dialog_prepaid_1',
+  },
+  {
+    id: 'dialog_prepaid_1',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_prepaid_1',
+    expression: 'thinking',
+    next: 'explain_prepaid_account',
+  },
+  { id: 'explain_prepaid_account', type: 'dialog', speaker: 'mentor', textKey: 'ch8.explain_prepaid_account', expression: 'thinking', next: 'prepaid_tx' },
+  {
+    id: 'prepaid_tx',
+    type: 'transaction',
+    descriptionKey: 'ch8.prepaid_tx.desc',
+    entries: [
+      { account: 'PREPAID_EXPENSES', debit: 200 },
+      { account: 'CASH', credit: 200 },
+    ],
+    showAnimation: true,
+    next: 'dialog_prepaid_2',
+  },
+  {
+    id: 'dialog_prepaid_2',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_prepaid_2',
+    expression: 'normal',
+    next: 'show_bs_prepaid',
+  },
+  {
+    id: 'show_bs_prepaid',
+    type: 'report',
+    reportType: 'balance_sheet',
+    messageKey: 'ch8.show_bs_prepaid.msg',
+    next: 'expense_recognition',
+  },
+
+  // === Expense Recognition ===
+  {
+    id: 'expense_recognition',
+    type: 'narration',
+    textKey: 'ch8.expense_recognition',
+    next: 'dialog_expense_1',
+  },
+  {
+    id: 'dialog_expense_1',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_expense_1',
+    expression: 'thinking',
+    next: 'expense_tx',
+  },
+  {
+    id: 'expense_tx',
+    type: 'transaction',
+    descriptionKey: 'ch8.expense_tx.desc',
+    entries: [
+      { account: 'RENT_EXPENSE', debit: 200 },
+      { account: 'PREPAID_EXPENSES', credit: 200 },
+    ],
+    showAnimation: true,
+    next: 'dialog_expense_2',
+  },
+  {
+    id: 'dialog_expense_2',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_expense_2',
+    expression: 'surprised',
+    next: 'show_pl_after_expense',
+  },
+  { id: 'show_pl_after_expense', type: 'report', reportType: 'income_statement', messageKey: 'ch8.show_pl_after_expense.msg', next: 'dialog_cash_vs_pl' },
+  { id: 'dialog_cash_vs_pl', type: 'dialog', speaker: 'mentor', textKey: 'ch8.dialog_cash_vs_pl', expression: 'thinking', next: 'cash_vs_profit_intro' },
+
+  // === Cash vs Profit Analysis ===
+  {
+    id: 'cash_vs_profit_intro',
+    type: 'background',
+    background: 'home',
+    next: 'dialog_analysis_1',
+  },
+  {
+    id: 'dialog_analysis_1',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_analysis_1',
+    expression: 'normal',
+    next: 'dialog_analysis_2',
+  },
+  {
+    id: 'dialog_analysis_2',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_analysis_2',
+    expression: 'thinking',
+    next: 'dialog_analysis_3',
+  },
+  {
+    id: 'dialog_analysis_3',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_analysis_3',
+    expression: 'thinking',
+    next: 'dialog_cf_intro',
+  },
+
+  // === Cash Flow Categories ===
+  {
+    id: 'dialog_cf_intro',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_cf_intro',
+    expression: 'normal',
+    next: 'dialog_cf_1',
+  },
+  {
+    id: 'dialog_cf_1',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_cf_1',
+    expression: 'thinking',
+    next: 'dialog_cf_2',
+  },
+  {
+    id: 'dialog_cf_2',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_cf_2',
+    expression: 'thinking',
+    next: 'dialog_cf_3',
+  },
+  {
+    id: 'dialog_cf_3',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_cf_3',
+    expression: 'thinking',
+    next: 'dialog_cf_4',
+  },
+  {
+    id: 'dialog_cf_4',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_cf_4',
+    expression: 'normal',
+    next: 'show_final_bs',
+  },
+  {
+    id: 'show_final_bs',
+    type: 'report',
+    reportType: 'balance_sheet',
+    messageKey: 'ch8.show_final_bs.msg',
+    next: 'show_final_pl',
+  },
+  { id: 'show_final_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch8.show_final_pl.msg', next: 'dialog_final' },
+  {
+    id: 'dialog_final',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch8.dialog_final',
+    expression: 'happy',
+    next: 'chapter_end',
+  },
+  {
+    id: 'chapter_end',
+    type: 'chapter_end',
+    nextChapter: 9,
+    summaryKey: 'ch8.chapter_end.summary',
+  },
+];
+
+export const chapter8: ChapterScript = {
+  id: 8,
+  titleKey: 'ch8.title',
+  subtitleKey: 'ch8.subtitle',
+  nodes,
+};

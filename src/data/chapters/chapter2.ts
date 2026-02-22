@@ -1,0 +1,46 @@
+import { ChapterScript, ScriptNode } from '../../vn/types';
+
+const nodes: ScriptNode[] = [
+  { id: 'start', type: 'background', background: 'lemonade_stand', next: 'mentor_enter' },
+  { id: 'mentor_enter', type: 'character_enter', character: 'mentor', position: 'right', expression: 'normal', next: 'dialog_1' },
+  { id: 'dialog_1', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_1', expression: 'happy', next: 'dialog_2' },
+  { id: 'dialog_2', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_2', expression: 'thinking', next: 'dialog_3' },
+  { id: 'dialog_3', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_3', expression: 'normal', next: 'dialog_morning_sales' },
+  { id: 'dialog_morning_sales', type: 'narration', textKey: 'ch2.dialog_morning_sales', next: 'morning_sale_tx' },
+  { id: 'morning_sale_tx', type: 'transaction', descriptionKey: 'ch2.morning_sale_tx.desc', entries: [{ account: 'CASH', debit: 500 }, { account: 'SALES_REVENUE', credit: 500 }], showAnimation: true, next: 'morning_cogs_tx' },
+  { id: 'morning_cogs_tx', type: 'transaction', descriptionKey: 'ch2.morning_cogs_tx.desc', entries: [{ account: 'COST_OF_GOODS_SOLD', debit: 250 }, { account: 'INVENTORY', credit: 250 }], showAnimation: false, next: 'explain_revenue_account' },
+  { id: 'explain_revenue_account', type: 'dialog', speaker: 'mentor', textKey: 'ch2.explain_revenue_account', expression: 'thinking', next: 'explain_cogs_account' },
+  { id: 'explain_cogs_account', type: 'dialog', speaker: 'mentor', textKey: 'ch2.explain_cogs_account', expression: 'thinking', next: 'show_mid_pl' },
+  { id: 'show_mid_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch2.show_mid_pl.msg', next: 'dialog_gross_profit' },
+  { id: 'dialog_gross_profit', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_gross_profit', expression: 'thinking', next: 'dialog_expenses_intro' },
+  { id: 'dialog_expenses_intro', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_expenses_intro', expression: 'normal', next: 'choice_rent' },
+  { id: 'choice_rent', type: 'choice', promptKey: 'ch2.choice_rent.prompt', choices: [
+    { labelKey: 'ch2.choice_rent.0', next: 'pay_rent_50', effects: { setFlags: { rentAmount: 50 } } },
+    { labelKey: 'ch2.choice_rent.1', next: 'pay_rent_100', effects: { setFlags: { rentAmount: 100 } } },
+  ]},
+  { id: 'pay_rent_50', type: 'transaction', descriptionKey: 'ch2.pay_rent_50.desc', entries: [{ account: 'RENT_EXPENSE', debit: 50 }, { account: 'CASH', credit: 50 }], showAnimation: true, next: 'after_rent' },
+  { id: 'pay_rent_100', type: 'transaction', descriptionKey: 'ch2.pay_rent_100.desc', entries: [{ account: 'RENT_EXPENSE', debit: 100 }, { account: 'CASH', credit: 100 }], showAnimation: true, next: 'after_rent' },
+  { id: 'after_rent', type: 'dialog', speaker: 'mentor', textKey: 'ch2.after_rent', expression: 'normal', next: 'explain_rent_account' },
+  { id: 'explain_rent_account', type: 'dialog', speaker: 'mentor', textKey: 'ch2.explain_rent_account', expression: 'thinking', next: 'show_pl_after_rent' },
+  { id: 'show_pl_after_rent', type: 'report', reportType: 'income_statement', messageKey: 'ch2.show_pl_after_rent.msg', next: 'afternoon_narration' },
+  { id: 'afternoon_narration', type: 'narration', textKey: 'ch2.afternoon_narration', next: 'afternoon_sale_tx' },
+  { id: 'afternoon_sale_tx', type: 'transaction', descriptionKey: 'ch2.afternoon_sale_tx.desc', entries: [{ account: 'CASH', debit: 300 }, { account: 'SALES_REVENUE', credit: 300 }], showAnimation: false, next: 'afternoon_cogs_tx' },
+  { id: 'afternoon_cogs_tx', type: 'transaction', descriptionKey: 'ch2.afternoon_cogs_tx.desc', entries: [{ account: 'COST_OF_GOODS_SOLD', debit: 150 }, { account: 'INVENTORY', credit: 150 }], showAnimation: false, next: 'end_of_day' },
+  { id: 'end_of_day', type: 'background', background: 'home', next: 'dialog_eod_1' },
+  { id: 'dialog_eod_1', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_1', expression: 'happy', next: 'dialog_eod_2' },
+  { id: 'dialog_eod_2', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_2', expression: 'normal', next: 'dialog_eod_3' },
+  { id: 'dialog_eod_3', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_3', expression: 'thinking', next: 'dialog_eod_4' },
+  { id: 'dialog_eod_4', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_4', expression: 'normal', next: 'dialog_eod_5' },
+  { id: 'dialog_eod_5', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_5', expression: 'thinking', next: 'show_final_report' },
+  { id: 'show_final_report', type: 'report', reportType: 'balance_sheet', messageKey: 'ch2.show_final_report.msg', next: 'show_final_pl' },
+  { id: 'show_final_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch2.show_final_pl.msg', next: 'dialog_final' },
+  { id: 'dialog_final', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_final', expression: 'happy', next: 'chapter_end' },
+  { id: 'chapter_end', type: 'chapter_end', nextChapter: 3, summaryKey: 'ch2.chapter_end.summary' },
+];
+
+export const chapter2: ChapterScript = {
+  id: 2,
+  titleKey: 'ch2.title',
+  subtitleKey: 'ch2.subtitle',
+  nodes,
+};
