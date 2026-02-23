@@ -428,6 +428,7 @@ export class VNScene extends Phaser.Scene {
         fontSize: '24px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     summaryTitle.setOrigin(0.5);
@@ -443,6 +444,7 @@ export class VNScene extends Phaser.Scene {
         wordWrap: { width: GAME_WIDTH - 100, useAdvancedWrap: true },
         align: 'center',
         lineSpacing: 8,
+        padding: { top: 4, bottom: 4 },
       }
     );
     summaryText.setOrigin(0.5);
@@ -455,6 +457,7 @@ export class VNScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '14px',
         color: '#aaaacc',
+        padding: { top: 4, bottom: 4 },
       }
     );
     continueText.setOrigin(0.5);

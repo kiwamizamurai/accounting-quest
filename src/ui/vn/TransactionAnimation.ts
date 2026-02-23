@@ -62,6 +62,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
       fontSize: '15px',
       color: '#ffd700',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     titleText.setOrigin(0.5, 0);
     this.animContainer.add(titleText);
@@ -77,14 +78,14 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     const debitHeader = this.scene.add.text(
       boxX + boxWidth - 160, headerY + 4,
       t('ui.debit'),
-      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#4a90d9' }
+      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#4a90d9', padding: { top: 4, bottom: 4 } }
     );
     this.animContainer.add(debitHeader);
 
     const creditHeader = this.scene.add.text(
       boxX + boxWidth - 80, headerY + 4,
       t('ui.credit'),
-      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#d94a4a' }
+      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#d94a4a', padding: { top: 4, bottom: 4 } }
     );
     this.animContainer.add(creditHeader);
 
@@ -125,6 +126,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
       fontFamily: '"Courier New", monospace',
       fontSize: '14px',
       color: '#ffffff',
+      padding: { top: 4, bottom: 4 },
     });
     nameText.setAlpha(0);
     this.animContainer.add(nameText);
@@ -138,6 +140,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
           fontFamily: '"Courier New", monospace',
           fontSize: '14px',
           color: '#4a90d9',
+          padding: { top: 4, bottom: 4 },
         }
       );
       debitText.setAlpha(0);
@@ -160,6 +163,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
           fontFamily: '"Courier New", monospace',
           fontSize: '14px',
           color: '#d94a4a',
+          padding: { top: 4, bottom: 4 },
         }
       );
       creditText.setAlpha(0);

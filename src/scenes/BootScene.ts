@@ -14,6 +14,7 @@ export class BootScene extends Phaser.Scene {
       fontFamily: '"Courier New", monospace',
       fontSize: '24px',
       color: '#ffffff',
+      padding: { top: 4, bottom: 4 },
     });
     loadingText.setOrigin(0.5);
 

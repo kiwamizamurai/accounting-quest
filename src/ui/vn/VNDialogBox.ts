@@ -47,6 +47,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
       fontSize: '15px',
       color: '#ffffff',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     this.add(this.speakerText);
 
@@ -75,6 +76,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
         fontFamily: '"Courier New", monospace',
         fontSize: '14px',
         color: '#ffffff',
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.continueIndicator.setVisible(false);

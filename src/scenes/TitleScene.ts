@@ -60,6 +60,7 @@ export class TitleScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '16px',
         color: '#aaaacc',
+        padding: { top: 4, bottom: 4 },
       }
     );
     subtitle.setOrigin(0.5);
@@ -84,6 +85,7 @@ export class TitleScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '14px',
         color: '#6a6a8a',
+        padding: { top: 4, bottom: 4 },
       }
     );
     tagline.setOrigin(0.5);
@@ -143,6 +145,7 @@ export class TitleScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '12px',
         color: '#6a6a8a',
+        padding: { top: 4, bottom: 4 },
       }
     );
     controls.setOrigin(0.5);
@@ -189,6 +192,7 @@ export class TitleScene extends Phaser.Scene {
         fontSize: '18px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     titleText.setOrigin(0.5);
@@ -219,6 +223,7 @@ export class TitleScene extends Phaser.Scene {
           fontFamily: '"Courier New", monospace',
           fontSize: '14px',
           color: '#6a6a8a',
+          padding: { top: 4, bottom: 4 },
         });
         empty.setOrigin(0.5);
         this.uiElements.push(empty);

@@ -53,6 +53,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
       fontSize: '16px',
       color: '#ffd700',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     this.add(this.speakerText);
 
@@ -81,6 +82,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
         fontFamily: '"Courier New", monospace',
         fontSize: '16px',
         color: '#ffffff',
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.continueIndicator.setVisible(false);

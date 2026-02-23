@@ -42,6 +42,7 @@ export class Button extends Phaser.GameObjects.Container {
       fontSize: `${config.fontSize ?? 16}px`,
       color: '#ffffff',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     this.label.setOrigin(0.5);
     this.add(this.label);

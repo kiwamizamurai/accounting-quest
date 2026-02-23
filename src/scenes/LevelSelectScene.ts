@@ -43,6 +43,7 @@ export class LevelSelectScene extends Phaser.Scene {
         fontSize: '28px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     title.setOrigin(0.5);
@@ -118,6 +119,7 @@ export class LevelSelectScene extends Phaser.Scene {
       fontStyle: 'bold',
       align: 'center',
       wordWrap: { width: width - 20 },
+      padding: { top: 4, bottom: 4 },
     });
     titleObj.setOrigin(0.5);
     this.uiElements.push(titleObj);
@@ -130,6 +132,7 @@ export class LevelSelectScene extends Phaser.Scene {
       color: '#aaaacc',
       align: 'center',
       wordWrap: { width: width - 20 },
+      padding: { top: 4, bottom: 4 },
     });
     subtitleObj.setOrigin(0.5);
     this.uiElements.push(subtitleObj);
@@ -149,6 +152,7 @@ export class LevelSelectScene extends Phaser.Scene {
       align: 'center',
       wordWrap: { width: width - 30, useAdvancedWrap: true },
       lineSpacing: 4,
+      padding: { top: 4, bottom: 4 },
     });
     descObj.setOrigin(0.5, 0);
     this.uiElements.push(descObj);
@@ -162,6 +166,7 @@ export class LevelSelectScene extends Phaser.Scene {
       fontFamily: '"Courier New", monospace',
       fontSize: '11px',
       color: '#6a6a8a',
+      padding: { top: 4, bottom: 4 },
     });
     chapterObj.setOrigin(0.5);
     this.uiElements.push(chapterObj);
