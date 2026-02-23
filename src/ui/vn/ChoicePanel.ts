@@ -12,7 +12,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.promptText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 120, '', {
+    this.promptText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 240, '', {
       fontFamily: '"Courier New", monospace',
       fontSize: '18px',
       color: '#ffd700',
@@ -35,7 +35,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     this.onSelect = onSelect;
     this.selectedIndex = 0;
 
-    const startY = GAME_HEIGHT / 2 - 60;
+    const startY = GAME_HEIGHT - 180;
     const choiceHeight = 48;
     const choiceWidth = 400;
 
