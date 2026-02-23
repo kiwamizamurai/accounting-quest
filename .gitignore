@@ -31,3 +31,7 @@ coverage/
 # Cache
 .cache/
 .parcel-cache/
+
+# Junie
+.junie/memory/
+.junie/.onboarding_migrated

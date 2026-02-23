@@ -64,3 +64,23 @@ All visible text uses i18n keys resolved via `t(key)` from `src/i18n/`. Translat
 ### Tests
 
 Tests live in `tests/` and use vitest + jsdom. Phaser is mocked via `tests/setup.ts`. Tests cover `AccountingEngine` (double-entry validation, balance sheet math) and `GameStateManager` state transitions.
+
+### Testing with Chrome DevTools MCP
+
+Chrome DevTools MCP allows AI agents to directly control and inspect the browser for verifying game behavior.
+
+**Setup:**
+
+1. Pre-configured in `.mcp.json` (for Claude Code) and `.junie/mcp.json` (for Junie)
+2. Requires Node.js v22+ and Chrome browser (stable or later)
+
+**Usage:**
+
+1. Start the dev server with `npm run dev`
+2. The AI agent launches and connects to Chrome via Chrome DevTools MCP
+3. Available verifications:
+   - Take page screenshots to confirm visual rendering
+   - Monitor console logs and errors
+   - Inspect DOM elements
+   - Execute JavaScript to check game state
+   - Monitor network requests
