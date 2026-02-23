@@ -411,6 +411,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
    */
   update(balanceSheet: BalanceSheet): void {
     const lang = getLanguage();
+    this.bsTitleText.setText(lang === 'ja' ? '貸借対照表 (B/S)' : 'Balance Sheet');
     this.clearContainer(this.bsLeftContainer);
     this.clearContainer(this.bsRightContainer);
     this.totalTexts.clear();
@@ -550,6 +551,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
   private renderIncomeStatement(is: IncomeStatement): void {
     const lang = getLanguage();
+    this.plTitleText.setText(lang === 'ja' ? '損益計算書 (P/L)' : 'Income Statement');
     this.clearContainer(this.plLeftContainer);
     this.clearContainer(this.plRightContainer);
 

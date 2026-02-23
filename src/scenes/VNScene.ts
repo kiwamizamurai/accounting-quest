@@ -126,6 +126,8 @@ export class VNScene extends Phaser.Scene {
       const newLang = getLanguage() === 'ja' ? 'en' : 'ja';
       setLanguage(newLang);
       this.langButton.setText(newLang === 'ja' ? 'EN' : 'JA');
+      // Update scorecard to reflect new language
+      this.updateScorecard();
       // Re-execute current node to update display language
       const currentNode = this.scriptEngine.getCurrentNode();
       if (currentNode && (currentNode.type === 'dialog' || currentNode.type === 'narration')) {
