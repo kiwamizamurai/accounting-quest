@@ -67,6 +67,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
         color: '#ffffff',
         wordWrap: { width: this.boxWidth - this.padding * 2 - 80, useAdvancedWrap: true },
         lineSpacing: 6,
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.add(this.dialogText);

@@ -53,7 +53,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     // Dialog text
     this.dialogText = scene.add.text(
       this.boxX + this.padding,
-      this.boxY + this.padding + 8,
+      this.boxY + this.padding + 14,
       '',
       {
         fontFamily: '"Courier New", monospace',
@@ -61,6 +61,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
         color: '#ffffff',
         wordWrap: { width: this.boxWidth - this.padding * 2, useAdvancedWrap: true },
         lineSpacing: 8,
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.add(this.dialogText);
