@@ -26,6 +26,7 @@ export class ChapterTitleScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '20px',
         color: '#6a6a8a',
+        padding: { top: 4, bottom: 4 },
       }
     );
     chapterNum.setOrigin(0.5);
@@ -41,6 +42,7 @@ export class ChapterTitleScene extends Phaser.Scene {
         fontSize: '28px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     title.setOrigin(0.5);
@@ -55,6 +57,7 @@ export class ChapterTitleScene extends Phaser.Scene {
         fontFamily: '"Courier New", monospace',
         fontSize: '14px',
         color: '#aaaacc',
+        padding: { top: 4, bottom: 4 },
       }
     );
     subtitle.setOrigin(0.5);

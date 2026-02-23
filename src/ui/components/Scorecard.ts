@@ -77,6 +77,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontSize: '15px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.bsTitleText.setOrigin(0.5, 0);
@@ -96,6 +97,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontSize: '11px',
         color: '#22c55e',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.bsBalanceIndicator.setOrigin(0.5, 0);
@@ -120,6 +122,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontSize: '15px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     this.plTitleText.setOrigin(0.5, 0);
@@ -138,6 +141,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontSize: '12px',
       color: '#ffd700',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     this.bsToggleBtn.add(this.bsToggleBtnBg);
     this.bsToggleBtn.add(this.bsToggleBtnText);
@@ -150,6 +154,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontSize: '12px',
       color: '#ffd700',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     this.plToggleBtn.add(this.plToggleBtnBg);
     this.plToggleBtn.add(this.plToggleBtnText);
@@ -272,6 +277,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontSize: '12px',
       color: Phaser.Display.Color.IntegerToColor(color).rgba,
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     container.add(t);
   }
@@ -289,6 +295,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontFamily: '"Courier New", monospace',
       fontSize: '11px',
       color: '#cccccc',
+      padding: { top: 4, bottom: 4 },
     });
     container.add(labelText);
 
@@ -300,6 +307,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontFamily: '"Courier New", monospace',
         fontSize: '11px',
         color: Phaser.Display.Color.IntegerToColor(color).rgba,
+        padding: { top: 4, bottom: 4 },
       }
     );
     amountText.setOrigin(1, 0);
@@ -330,6 +338,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontSize: '12px',
       color: '#ffffff',
       fontStyle: bold ? 'bold' : 'normal',
+      padding: { top: 4, bottom: 4 },
     });
     container.add(labelText);
 
@@ -342,6 +351,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontSize: '12px',
         color: Phaser.Display.Color.IntegerToColor(color).rgba,
         fontStyle: bold ? 'bold' : 'normal',
+        padding: { top: 4, bottom: 4 },
       }
     );
     amountText.setOrigin(1, 0);
@@ -372,6 +382,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       fontSize: '12px',
       color: '#ffd700',
       fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
     });
     container.add(labelText);
 
@@ -384,6 +395,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
         fontSize: '12px',
         color: '#ffd700',
         fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       }
     );
     amountText.setOrigin(1, 0);

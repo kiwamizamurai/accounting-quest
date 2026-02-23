@@ -18,6 +18,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       color: '#ffd700',
       fontStyle: 'bold',
       align: 'center',
+      padding: { top: 4, bottom: 4 },
     });
     this.promptText.setOrigin(0.5);
     this.add(this.promptText);
@@ -91,6 +92,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       fontFamily: '"Courier New", monospace',
       fontSize: '16px',
       color: '#ffffff',
+      padding: { top: 4, bottom: 4 },
     });
     label.setOrigin(0.5);
     container.add(label);
