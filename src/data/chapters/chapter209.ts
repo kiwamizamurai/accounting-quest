@@ -194,6 +194,33 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch209.dialog_financing_explain',
     expression: 'normal',
+    next: 'loan_borrowing_narration',
+  },
+
+  // === Loan Borrowing (Prerequisite for Repayment) ===
+  {
+    id: 'loan_borrowing_narration',
+    type: 'narration',
+    textKey: 'ch209.loan_borrowing_narration',
+    next: 'loan_borrowing_tx',
+  },
+  {
+    id: 'loan_borrowing_tx',
+    type: 'transaction',
+    descriptionKey: 'ch209.loan_borrowing_tx.desc',
+    entries: [
+      { account: 'CHECKING_ACCOUNT', debit: 5000 },
+      { account: 'LOANS_PAYABLE', credit: 5000 },
+    ],
+    showAnimation: true,
+    next: 'loan_borrowing_done',
+  },
+  {
+    id: 'loan_borrowing_done',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch209.loan_borrowing_done',
+    expression: 'normal',
     next: 'loan_repayment_tx',
   },
   {
@@ -205,7 +232,16 @@ const nodes: ScriptNode[] = [
       { account: 'CHECKING_ACCOUNT', credit: 3000 },
     ],
     showAnimation: true,
-    next: 'dividend_payment_tx',
+    next: 'check_remaining_dividend',
+  },
+
+  // === Conditional: Pay remaining dividend only if 3000 was declared in Ch208 ===
+  {
+    id: 'check_remaining_dividend',
+    type: 'conditional',
+    condition: { type: 'flag', flag: 'dividendAmount', value: 3000 },
+    trueNext: 'dividend_payment_tx',
+    falseNext: 'dialog_after_financing',
   },
   {
     id: 'dividend_payment_tx',

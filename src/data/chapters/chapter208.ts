@@ -131,21 +131,46 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch208.after_declare',
     expression: 'happy',
-    next: 'journal_entry_dividend',
+    next: 'check_dividend_amount',
   },
 
-  // === Journal Entry Input: Dividend Declaration ===
+  // === Conditional: Route based on dividend amount ===
   {
-    id: 'journal_entry_dividend',
+    id: 'check_dividend_amount',
+    type: 'conditional',
+    condition: { type: 'flag', flag: 'dividendAmount', value: 2000 },
+    trueNext: 'journal_entry_dividend_2000',
+    falseNext: 'journal_entry_dividend_3000',
+  },
+
+  // === Journal Entry Input: Dividend Declaration (2000) ===
+  {
+    id: 'journal_entry_dividend_2000',
     type: 'journal_entry_input',
-    promptKey: 'ch208.journal_entry_dividend.prompt',
+    promptKey: 'ch208.journal_entry_dividend_2000.prompt',
     expectedEntries: [
       { account: 'RETAINED_EARNINGS', debit: 2000 },
       { account: 'DIVIDENDS_PAYABLE', credit: 2000 },
     ],
-    correctFeedbackKey: 'ch208.journal_entry_dividend.correct',
-    incorrectFeedbackKey: 'ch208.journal_entry_dividend.incorrect',
-    hintKey: 'ch208.journal_entry_dividend.hint',
+    correctFeedbackKey: 'ch208.journal_entry_dividend_2000.correct',
+    incorrectFeedbackKey: 'ch208.journal_entry_dividend_2000.incorrect',
+    hintKey: 'ch208.journal_entry_dividend_2000.hint',
+    expReward: 30,
+    next: 'show_bs_after_declare',
+  },
+
+  // === Journal Entry Input: Dividend Declaration (3000) ===
+  {
+    id: 'journal_entry_dividend_3000',
+    type: 'journal_entry_input',
+    promptKey: 'ch208.journal_entry_dividend_3000.prompt',
+    expectedEntries: [
+      { account: 'RETAINED_EARNINGS', debit: 3000 },
+      { account: 'DIVIDENDS_PAYABLE', credit: 3000 },
+    ],
+    correctFeedbackKey: 'ch208.journal_entry_dividend_3000.correct',
+    incorrectFeedbackKey: 'ch208.journal_entry_dividend_3000.incorrect',
+    hintKey: 'ch208.journal_entry_dividend_3000.hint',
     expReward: 30,
     next: 'show_bs_after_declare',
   },
@@ -164,12 +189,32 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch208.pay_dividend_intro',
     expression: 'normal',
-    next: 'pay_dividend_tx',
+    next: 'check_dividend_for_pay',
+  },
+
+  // === Conditional: Route payment based on dividend amount ===
+  {
+    id: 'check_dividend_for_pay',
+    type: 'conditional',
+    condition: { type: 'flag', flag: 'dividendAmount', value: 2000 },
+    trueNext: 'pay_dividend_tx_2000',
+    falseNext: 'pay_dividend_tx_3000',
   },
   {
-    id: 'pay_dividend_tx',
+    id: 'pay_dividend_tx_2000',
     type: 'transaction',
-    descriptionKey: 'ch208.pay_dividend_tx.desc',
+    descriptionKey: 'ch208.pay_dividend_tx_2000.desc',
+    entries: [
+      { account: 'DIVIDENDS_PAYABLE', debit: 2000 },
+      { account: 'CHECKING_ACCOUNT', credit: 2000 },
+    ],
+    showAnimation: true,
+    next: 'dialog_after_pay',
+  },
+  {
+    id: 'pay_dividend_tx_3000',
+    type: 'transaction',
+    descriptionKey: 'ch208.pay_dividend_tx_3000.desc',
     entries: [
       { account: 'DIVIDENDS_PAYABLE', debit: 2000 },
       { account: 'CHECKING_ACCOUNT', credit: 2000 },
