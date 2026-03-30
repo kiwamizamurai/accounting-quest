@@ -91,7 +91,7 @@ const nodes: ScriptNode[] = [
     type: 'transaction',
     descriptionKey: 'ch9.tax_tx_20.desc',
     entries: [
-      { account: 'UTILITIES_EXPENSE', debit: 100 },
+      { account: 'TAX_EXPENSE', debit: 100 },
       { account: 'CASH', credit: 100 },
     ],
     showAnimation: true,
@@ -112,7 +112,7 @@ const nodes: ScriptNode[] = [
     type: 'transaction',
     descriptionKey: 'ch9.tax_tx_30.desc',
     entries: [
-      { account: 'UTILITIES_EXPENSE', debit: 150 },
+      { account: 'TAX_EXPENSE', debit: 150 },
       { account: 'CASH', credit: 150 },
     ],
     showAnimation: true,
