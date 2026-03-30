@@ -488,6 +488,16 @@ export class Scorecard extends Phaser.GameObjects.Container {
       );
       rightY += this.lineHeight;
     }
+    if (balanceSheet.netIncome !== 0) {
+      const niLabel = lang === 'ja' ? '当期純利益' : 'Net Income';
+      const niColor = balanceSheet.netIncome > 0 ? 0x22c55e : 0xef4444;
+      this.addItem(
+        this.bsRightContainer,
+        niLabel,
+        balanceSheet.netIncome, rightX, rightY, niColor
+      );
+      rightY += this.lineHeight;
+    }
     rightY += 4;
     this.addTotal(
       this.bsRightContainer,
@@ -577,21 +587,11 @@ export class Scorecard extends Phaser.GameObjects.Container {
       leftY += this.lineHeight;
     }
 
-    // If profit, net income appears on the debit (left) side
-    if (is.netIncome > 0) {
-      leftY += 4;
-      const niLabel = lang === 'ja' ? '\u5F53\u671F\u7D14\u5229\u76CA' : 'Net Income';
-      this.addItem(this.plLeftContainer, niLabel, is.netIncome, leftX, leftY, 0x22c55e);
-      leftY += this.lineHeight;
-    }
-
     leftY += 4;
-    // Left grand total: totalExpenses + max(0, netIncome) = totalRevenue when profit
-    const leftTotal = is.netIncome > 0 ? is.totalRevenue : is.totalExpenses;
-    this.addGrandTotal(
+    this.addTotal(
       this.plLeftContainer,
-      lang === 'ja' ? '\u5408\u8A08' : 'Total',
-      leftTotal, leftX, leftY
+      lang === 'ja' ? '費用合計' : 'Total Expenses',
+      is.totalExpenses, leftX, leftY, COLORS.EXPENSES, 'totalExpenses', false
     );
     leftY += this.lineHeight + 4;
 
@@ -613,26 +613,43 @@ export class Scorecard extends Phaser.GameObjects.Container {
       rightY += this.lineHeight;
     }
 
-    // If loss, net loss appears on the credit (right) side
-    if (is.netIncome < 0) {
-      rightY += 4;
-      const nlLabel = lang === 'ja' ? '\u5F53\u671F\u7D14\u640D\u5931' : 'Net Loss';
-      this.addItem(this.plRightContainer, nlLabel, Math.abs(is.netIncome), rightX, rightY, 0xef4444);
-      rightY += this.lineHeight;
-    }
-
     rightY += 4;
-    // Right grand total: totalRevenue + max(0, |netLoss|) = totalExpenses when loss
-    const rightTotal = is.netIncome < 0 ? is.totalExpenses : is.totalRevenue;
-    this.addGrandTotal(
+    this.addTotal(
       this.plRightContainer,
-      lang === 'ja' ? '\u5408\u8A08' : 'Total',
-      rightTotal, rightX, rightY
+      lang === 'ja' ? '収益合計' : 'Total Revenue',
+      is.totalRevenue, rightX, rightY, COLORS.REVENUE, 'totalRevenue', false
     );
     rightY += this.lineHeight + 4;
 
+    // ---- Net income formula (full-width, below both columns) ----
+    const formulaY = Math.max(leftY, rightY) + 2;
+    const formulaLine = this.scene.add.graphics();
+    formulaLine.lineStyle(1, 0xffd700, 0.6);
+    formulaLine.lineBetween(leftX + this.itemPadding, formulaY - 5, leftX + this.halfWidth * 2 - this.itemPadding, formulaY - 5);
+    formulaLine.lineBetween(leftX + this.itemPadding, formulaY - 2, leftX + this.halfWidth * 2 - this.itemPadding, formulaY - 2);
+    this.plLeftContainer.add(formulaLine);
+
+    const niColor = is.netIncome >= 0 ? '#22c55e' : '#ef4444';
+    const niLabel = is.netIncome >= 0
+      ? (lang === 'ja' ? '当期純利益' : 'Net Income')
+      : (lang === 'ja' ? '当期純損失' : 'Net Loss');
+    const formulaText = lang === 'ja'
+      ? `${niLabel}  ${formatMoney(is.totalRevenue)} - ${formatMoney(is.totalExpenses)} = ${formatMoney(is.netIncome)}`
+      : `${niLabel}  ${formatMoney(is.totalRevenue)} - ${formatMoney(is.totalExpenses)} = ${formatMoney(is.netIncome)}`;
+
+    const formulaLabel = this.scene.add.text(leftX + this.itemPadding, formulaY, formulaText, {
+      fontFamily: '"Courier New", monospace',
+      fontSize: '12px',
+      color: niColor,
+      fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
+    });
+    this.plLeftContainer.add(formulaLabel);
+
+    const bottomY = formulaY + this.lineHeight + 8;
+
     // Resize background
-    const plHeight = Math.max(leftY, rightY) - this.basePanelY + 8;
+    const plHeight = bottomY - this.basePanelY + 8;
     this.drawPanelBg(this.plBackground, this.plDivider, plHeight);
   }
 
