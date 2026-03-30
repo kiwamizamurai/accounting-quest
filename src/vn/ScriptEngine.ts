@@ -124,7 +124,8 @@ export class ScriptEngine {
     const isCorrect = this.validateJournalEntryInput(entries, node.expectedEntries);
 
     if (isCorrect) {
-      this.processTransactionEntries(node.expectedEntries);
+      // Don't record the transaction here — the preceding transaction node already recorded it.
+      // journal_entry_input is a practice/verification exercise only.
       if (node.expReward) {
         this.gameState.addPlayerExp(node.expReward);
       }
