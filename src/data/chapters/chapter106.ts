@@ -208,7 +208,7 @@ const nodes: ScriptNode[] = [
     descriptionKey: 'ch106.cash_shortage.desc',
     entries: [
       { account: 'MISCELLANEOUS_EXPENSE', debit: 30 },
-      { account: 'CASH', credit: 30 },
+      { account: 'PETTY_CASH', credit: 30 },
     ],
     showAnimation: true,
     next: 'dialog_shortage_done',

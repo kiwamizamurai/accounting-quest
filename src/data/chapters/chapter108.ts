@@ -93,13 +93,32 @@ const nodes: ScriptNode[] = [
     next: 'narration_next_year',
   },
 
-  // === Actual Write-Off ===
+  // === Establish Accounts Receivable (Prerequisite for Write-Off) ===
   {
     id: 'narration_next_year',
     type: 'narration',
     textKey: 'ch108.narration_next_year',
+    next: 'setup_receivable_narration',
+  },
+  {
+    id: 'setup_receivable_narration',
+    type: 'narration',
+    textKey: 'ch108.setup_receivable_narration',
+    next: 'setup_receivable_tx',
+  },
+  {
+    id: 'setup_receivable_tx',
+    type: 'transaction',
+    descriptionKey: 'ch108.setup_receivable_tx.desc',
+    entries: [
+      { account: 'ACCOUNTS_RECEIVABLE', debit: 500 },
+      { account: 'SALES_REVENUE', credit: 500 },
+    ],
+    showAnimation: true,
     next: 'dialog_default',
   },
+
+  // === Actual Write-Off ===
   {
     id: 'dialog_default',
     type: 'dialog',

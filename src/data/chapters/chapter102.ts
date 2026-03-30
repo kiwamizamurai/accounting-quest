@@ -22,6 +22,33 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch102.dialog_1',
     expression: 'happy',
+    next: 'bank_loan_narration',
+  },
+
+  // === Bank Loan for Opening Funds ===
+  {
+    id: 'bank_loan_narration',
+    type: 'narration',
+    textKey: 'ch102.bank_loan_narration',
+    next: 'bank_loan_tx',
+  },
+  {
+    id: 'bank_loan_tx',
+    type: 'transaction',
+    descriptionKey: 'ch102.bank_loan_tx.desc',
+    entries: [
+      { account: 'CHECKING_ACCOUNT', debit: 8000 },
+      { account: 'LOANS_PAYABLE', credit: 8000 },
+    ],
+    showAnimation: true,
+    next: 'bank_loan_done',
+  },
+  {
+    id: 'bank_loan_done',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch102.bank_loan_done',
+    expression: 'normal',
     next: 'dialog_2',
   },
   {

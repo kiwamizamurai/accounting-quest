@@ -25,15 +25,45 @@ const nodes: ScriptNode[] = [
     next: 'dialog_intro_2',
   },
 
-  // === Equipment Disposal ===
+  // === Equipment Setup (Prerequisite for Disposal) ===
   {
     id: 'dialog_intro_2',
     type: 'dialog',
     speaker: 'mentor',
     textKey: 'ch110.dialog_intro_2',
     expression: 'thinking',
+    next: 'setup_equipment_narration',
+  },
+  {
+    id: 'setup_equipment_narration',
+    type: 'narration',
+    textKey: 'ch110.setup_equipment_narration',
+    next: 'setup_equipment_tx',
+  },
+  {
+    id: 'setup_equipment_tx',
+    type: 'transaction',
+    descriptionKey: 'ch110.setup_equipment_tx.desc',
+    entries: [
+      { account: 'EQUIPMENT', debit: 3000 },
+      { account: 'CHECKING_ACCOUNT', credit: 3000 },
+    ],
+    showAnimation: true,
+    next: 'setup_depreciation_tx',
+  },
+  {
+    id: 'setup_depreciation_tx',
+    type: 'transaction',
+    descriptionKey: 'ch110.setup_depreciation_tx.desc',
+    entries: [
+      { account: 'DEPRECIATION_EXPENSE', debit: 2000 },
+      { account: 'ACCUMULATED_DEPRECIATION', credit: 2000 },
+    ],
+    showAnimation: true,
     next: 'dialog_book_value',
   },
+
+  // === Equipment Disposal ===
   {
     id: 'dialog_book_value',
     type: 'dialog',
