@@ -180,7 +180,7 @@ export class ScriptEngine {
 
     switch (node.type) {
       case 'dialog': {
-        this.callbacks.onDialog(node.speaker, t(node.textKey), node.expression);
+        this.callbacks.onDialog(node.speaker, t(node.textKey, this.vnState.flags as Record<string, string | number>), node.expression);
         break;
       }
       case 'choice': {
@@ -194,7 +194,7 @@ export class ScriptEngine {
       }
       case 'transaction': {
         this.processTransactionEntries(node.entries);
-        this.callbacks.onTransaction(t(node.descriptionKey), node.entries, node.showAnimation);
+        this.callbacks.onTransaction(t(node.descriptionKey, this.vnState.flags as Record<string, string | number>), node.entries, node.showAnimation);
         break;
       }
       case 'report': {
@@ -203,7 +203,7 @@ export class ScriptEngine {
         break;
       }
       case 'narration': {
-        this.callbacks.onNarration(t(node.textKey));
+        this.callbacks.onNarration(t(node.textKey, this.vnState.flags as Record<string, string | number>));
         break;
       }
       case 'character_enter': {
