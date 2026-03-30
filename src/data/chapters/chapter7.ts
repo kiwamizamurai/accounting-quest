@@ -157,10 +157,17 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch7.dialog_dep_3',
     expression: 'thinking',
-    next: 'dep_period_1_narration',
+    next: 'check_equipment_cost',
   },
 
   // === First Depreciation Period ===
+  {
+    id: 'check_equipment_cost',
+    type: 'conditional',
+    condition: { type: 'flag', flag: 'equipmentCost', value: 300 },
+    trueNext: 'dep_period_1_narration',
+    falseNext: 'dep_period_1_narration_500',
+  },
   {
     id: 'dep_period_1_narration',
     type: 'narration',
@@ -174,6 +181,24 @@ const nodes: ScriptNode[] = [
     entries: [
       { account: 'DEPRECIATION_EXPENSE', debit: 60 },
       { account: 'ACCUMULATED_DEPRECIATION', credit: 60 },
+    ],
+    showAnimation: true,
+    next: 'dialog_after_dep_1',
+  },
+  // 500-yen path (Period 1)
+  {
+    id: 'dep_period_1_narration_500',
+    type: 'narration',
+    textKey: 'ch7.dep_period_1_narration_500',
+    next: 'dep_period_1_tx_500',
+  },
+  {
+    id: 'dep_period_1_tx_500',
+    type: 'transaction',
+    descriptionKey: 'ch7.dep_period_1_tx_500.desc',
+    entries: [
+      { account: 'DEPRECIATION_EXPENSE', debit: 100 },
+      { account: 'ACCUMULATED_DEPRECIATION', credit: 100 },
     ],
     showAnimation: true,
     next: 'dialog_after_dep_1',
@@ -194,9 +219,16 @@ const nodes: ScriptNode[] = [
     messageKey: 'ch7.show_bs_after_dep_1.msg',
     next: 'show_pl_after_dep_1',
   },
-  { id: 'show_pl_after_dep_1', type: 'report', reportType: 'income_statement', messageKey: 'ch7.show_pl_after_dep_1.msg', next: 'dep_period_2_narration' },
+  { id: 'show_pl_after_dep_1', type: 'report', reportType: 'income_statement', messageKey: 'ch7.show_pl_after_dep_1.msg', next: 'check_equipment_cost_2' },
 
   // === Second Depreciation Period ===
+  {
+    id: 'check_equipment_cost_2',
+    type: 'conditional',
+    condition: { type: 'flag', flag: 'equipmentCost', value: 300 },
+    trueNext: 'dep_period_2_narration',
+    falseNext: 'dep_period_2_narration_500',
+  },
   {
     id: 'dep_period_2_narration',
     type: 'narration',
@@ -210,6 +242,24 @@ const nodes: ScriptNode[] = [
     entries: [
       { account: 'DEPRECIATION_EXPENSE', debit: 60 },
       { account: 'ACCUMULATED_DEPRECIATION', credit: 60 },
+    ],
+    showAnimation: true,
+    next: 'dialog_after_dep_2',
+  },
+  // 500-yen path (Period 2)
+  {
+    id: 'dep_period_2_narration_500',
+    type: 'narration',
+    textKey: 'ch7.dep_period_2_narration_500',
+    next: 'dep_period_2_tx_500',
+  },
+  {
+    id: 'dep_period_2_tx_500',
+    type: 'transaction',
+    descriptionKey: 'ch7.dep_period_2_tx_500.desc',
+    entries: [
+      { account: 'DEPRECIATION_EXPENSE', debit: 100 },
+      { account: 'ACCUMULATED_DEPRECIATION', credit: 100 },
     ],
     showAnimation: true,
     next: 'dialog_after_dep_2',
