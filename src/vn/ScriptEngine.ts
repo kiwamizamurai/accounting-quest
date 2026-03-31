@@ -124,7 +124,8 @@ export class ScriptEngine {
     const isCorrect = this.validateJournalEntryInput(entries, node.expectedEntries);
 
     if (isCorrect) {
-      this.processTransactionEntries(node.expectedEntries);
+      // Don't record the transaction here — the preceding transaction node already recorded it.
+      // journal_entry_input is a practice/verification exercise only.
       if (node.expReward) {
         this.gameState.addPlayerExp(node.expReward);
       }
@@ -179,7 +180,7 @@ export class ScriptEngine {
 
     switch (node.type) {
       case 'dialog': {
-        this.callbacks.onDialog(node.speaker, t(node.textKey), node.expression);
+        this.callbacks.onDialog(node.speaker, t(node.textKey, this.vnState.flags as Record<string, string | number>), node.expression);
         break;
       }
       case 'choice': {
@@ -193,7 +194,7 @@ export class ScriptEngine {
       }
       case 'transaction': {
         this.processTransactionEntries(node.entries);
-        this.callbacks.onTransaction(t(node.descriptionKey), node.entries, node.showAnimation);
+        this.callbacks.onTransaction(t(node.descriptionKey, this.vnState.flags as Record<string, string | number>), node.entries, node.showAnimation);
         break;
       }
       case 'report': {
@@ -202,7 +203,7 @@ export class ScriptEngine {
         break;
       }
       case 'narration': {
-        this.callbacks.onNarration(t(node.textKey));
+        this.callbacks.onNarration(t(node.textKey, this.vnState.flags as Record<string, string | number>));
         break;
       }
       case 'character_enter': {

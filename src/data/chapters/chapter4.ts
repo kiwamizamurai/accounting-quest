@@ -10,7 +10,9 @@ const nodes: ScriptNode[] = [
   { id: 'customer_enter', type: 'character_enter', character: 'customer', position: 'left', expression: 'happy', next: 'dialog_customer_1' },
   { id: 'dialog_customer_1', type: 'dialog', speaker: 'customer', textKey: 'ch4.dialog_customer_1', expression: 'normal', next: 'dialog_mentor_credit' },
   { id: 'dialog_mentor_credit', type: 'dialog', speaker: 'mentor', textKey: 'ch4.dialog_mentor_credit', expression: 'happy', next: 'explain_accounts_receivable' },
-  { id: 'explain_accounts_receivable', type: 'dialog', speaker: 'mentor', textKey: 'ch4.explain_accounts_receivable', expression: 'thinking', next: 'choice_credit_sale' },
+  { id: 'explain_accounts_receivable', type: 'dialog', speaker: 'mentor', textKey: 'ch4.explain_accounts_receivable', expression: 'thinking', next: 'purchase_inventory_narration' },
+  { id: 'purchase_inventory_narration', type: 'narration', textKey: 'ch4.purchase_inventory_narration', next: 'purchase_inventory_tx' },
+  { id: 'purchase_inventory_tx', type: 'transaction', descriptionKey: 'ch4.purchase_inventory_tx.desc', entries: [{ account: 'INVENTORY', debit: 500 }, { account: 'CASH', credit: 500 }], showAnimation: true, next: 'choice_credit_sale' },
   { id: 'choice_credit_sale', type: 'choice', promptKey: 'ch4.choice_credit_sale.prompt', choices: [
     { labelKey: 'ch4.choice_credit_sale.0', next: 'credit_sale_500', effects: { setFlags: { creditSaleAmount: 500 } } },
     { labelKey: 'ch4.choice_credit_sale.1', next: 'credit_sale_800', effects: { setFlags: { creditSaleAmount: 800 } } },

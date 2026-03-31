@@ -59,15 +59,39 @@ const nodes: ScriptNode[] = [
     next: 'dialog_overhead_alloc_intro',
   },
 
-  // === Overhead Allocation ===
+  // === Material and Labor Input ===
   {
     id: 'dialog_overhead_alloc_intro',
     type: 'dialog',
     speaker: 'mentor',
     textKey: 'ch202.dialog_overhead_alloc_intro',
     expression: 'thinking',
+    next: 'material_input_tx',
+  },
+  {
+    id: 'material_input_tx',
+    type: 'transaction',
+    descriptionKey: 'ch202.material_input_tx.desc',
+    entries: [
+      { account: 'WORK_IN_PROCESS', debit: 2500 },
+      { account: 'RAW_MATERIALS', credit: 2500 },
+    ],
+    showAnimation: true,
+    next: 'labor_input_tx',
+  },
+  {
+    id: 'labor_input_tx',
+    type: 'transaction',
+    descriptionKey: 'ch202.labor_input_tx.desc',
+    entries: [
+      { account: 'WORK_IN_PROCESS', debit: 1500 },
+      { account: 'CHECKING_ACCOUNT', credit: 1500 },
+    ],
+    showAnimation: true,
     next: 'dialog_overhead_alloc_explain',
   },
+
+  // === Overhead Allocation ===
   {
     id: 'dialog_overhead_alloc_explain',
     type: 'dialog',

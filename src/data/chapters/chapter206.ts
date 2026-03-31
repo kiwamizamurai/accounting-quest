@@ -114,15 +114,34 @@ const nodes: ScriptNode[] = [
     next: 'goodwill_intro',
   },
 
-  // === Goodwill ===
+  // === Goodwill Recognition (Consolidation Entry) ===
   {
     id: 'goodwill_intro',
     type: 'dialog',
     speaker: 'mentor',
     textKey: 'ch206.goodwill_intro',
     expression: 'thinking',
+    next: 'goodwill_recognition_narration',
+  },
+  {
+    id: 'goodwill_recognition_narration',
+    type: 'narration',
+    textKey: 'ch206.goodwill_recognition_narration',
+    next: 'goodwill_recognition_tx',
+  },
+  {
+    id: 'goodwill_recognition_tx',
+    type: 'transaction',
+    descriptionKey: 'ch206.goodwill_recognition_tx.desc',
+    entries: [
+      { account: 'GOODWILL', debit: 2000 },
+      { account: 'SUBSIDIARY_SECURITIES', credit: 2000 },
+    ],
+    showAnimation: true,
     next: 'dialog_goodwill_explain',
   },
+
+  // === Goodwill Explanation ===
   {
     id: 'dialog_goodwill_explain',
     type: 'dialog',

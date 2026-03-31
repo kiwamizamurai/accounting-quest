@@ -109,7 +109,18 @@ const nodes: ScriptNode[] = [
     descriptionKey: 'ch207.parent_cogs_tx.desc',
     entries: [
       { account: 'COST_OF_GOODS_SOLD', debit: 2000 },
-      { account: 'INVENTORY', credit: 2000 },
+      { account: 'FINISHED_GOODS', credit: 2000 },
+    ],
+    showAnimation: true,
+    next: 'sub_purchase_tx',
+  },
+  {
+    id: 'sub_purchase_tx',
+    type: 'transaction',
+    descriptionKey: 'ch207.sub_purchase_tx.desc',
+    entries: [
+      { account: 'INVENTORY', debit: 3000 },
+      { account: 'CHECKING_ACCOUNT', credit: 3000 },
     ],
     showAnimation: true,
     next: 'dialog_intercompany_problem',

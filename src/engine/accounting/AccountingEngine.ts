@@ -8,6 +8,7 @@ export interface BalanceSheet {
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
+  netIncome: number;
   isBalanced: boolean;
 }
 
@@ -125,14 +126,10 @@ export class AccountingEngine {
 
       switch (account.type) {
         case AccountType.ASSET:
-          // Accumulated Depreciation is contra-asset
-          if (account.category === AccountCategory.ACCUMULATED_DEPRECIATION) {
-            assets.push(balance);
-            totalAssets -= account.balance;
-          } else {
-            assets.push(balance);
-            totalAssets += account.balance;
-          }
+          assets.push(balance);
+          // Contra-asset accounts (e.g. Accumulated Depreciation, Allowance for Doubtful Accounts)
+          // already have negative balances via the debit-increase rule, so += works correctly
+          totalAssets += account.balance;
           break;
         case AccountType.LIABILITY:
           liabilities.push(balance);
@@ -156,6 +153,7 @@ export class AccountingEngine {
       totalAssets,
       totalLiabilities,
       totalEquity,
+      netIncome: incomeStatement.netIncome,
       isBalanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.001,
     };
   }

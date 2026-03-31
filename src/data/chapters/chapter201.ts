@@ -22,6 +22,33 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch201.dialog_1',
     expression: 'happy',
+    next: 'initial_fund_narration',
+  },
+
+  // === Initial Operating Fund ===
+  {
+    id: 'initial_fund_narration',
+    type: 'narration',
+    textKey: 'ch201.initial_fund_narration',
+    next: 'initial_fund_tx',
+  },
+  {
+    id: 'initial_fund_tx',
+    type: 'transaction',
+    descriptionKey: 'ch201.initial_fund_tx.desc',
+    entries: [
+      { account: 'CHECKING_ACCOUNT', debit: 50000 },
+      { account: 'OWNERS_CAPITAL', credit: 50000 },
+    ],
+    showAnimation: true,
+    next: 'initial_fund_done',
+  },
+  {
+    id: 'initial_fund_done',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch201.initial_fund_done',
+    expression: 'happy',
     next: 'dialog_2',
   },
   {

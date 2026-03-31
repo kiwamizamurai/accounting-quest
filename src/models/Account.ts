@@ -148,6 +148,8 @@ export enum AccountCategory {
   MANUFACTURING_OVERHEAD = 'MANUFACTURING_OVERHEAD',
   DIRECT_MATERIALS = 'DIRECT_MATERIALS',
   DIRECT_LABOR = 'DIRECT_LABOR',
+  MATERIAL_PRICE_VARIANCE = 'MATERIAL_PRICE_VARIANCE',
+  LABOR_EFFICIENCY_VARIANCE = 'LABOR_EFFICIENCY_VARIANCE',
 }
 
 export interface Account {
@@ -272,6 +274,8 @@ export function getAccountType(category: AccountCategory): AccountType {
     [AccountCategory.MANUFACTURING_OVERHEAD]: AccountType.EXPENSE,
     [AccountCategory.DIRECT_MATERIALS]: AccountType.EXPENSE,
     [AccountCategory.DIRECT_LABOR]: AccountType.EXPENSE,
+    [AccountCategory.MATERIAL_PRICE_VARIANCE]: AccountType.EXPENSE,
+    [AccountCategory.LABOR_EFFICIENCY_VARIANCE]: AccountType.EXPENSE,
   };
 
   return typeMap[category];
@@ -421,6 +425,8 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
   { category: AccountCategory.MANUFACTURING_OVERHEAD, name: 'Manufacturing Overhead', nameJa: '製造間接費', level: 3 },
   { category: AccountCategory.DIRECT_MATERIALS, name: 'Direct Materials', nameJa: '直接材料費', level: 3 },
   { category: AccountCategory.DIRECT_LABOR, name: 'Direct Labor', nameJa: '直接労務費', level: 3 },
+  { category: AccountCategory.MATERIAL_PRICE_VARIANCE, name: 'Material Price Variance', nameJa: '材料価格差異', level: 3 },
+  { category: AccountCategory.LABOR_EFFICIENCY_VARIANCE, name: 'Labor Efficiency Variance', nameJa: '労務能率差異', level: 3 },
 ];
 
 export function createAccount(
