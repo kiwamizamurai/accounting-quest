@@ -12,8 +12,8 @@ interface AnimationEntry {
 export class TransactionAnimation extends Phaser.GameObjects.Container {
   private animContainer: Phaser.GameObjects.Container;
   private onComplete?: () => void;
-  private autoCloseTimer?: Phaser.Time.TimerEvent;
   private isClosing = false;
+  private isReady = false;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -29,6 +29,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     entries: AnimationEntry[],
     onComplete?: () => void
   ): void {
+    this.removeSkipListeners();
     this.clearAnimation();
     this.onComplete = onComplete;
     this.isClosing = false;
@@ -99,10 +100,12 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
       });
     });
 
-    // Auto-close after animation
-    const totalDuration = 300 + entries.length * 400 + 1500;
-    this.autoCloseTimer = this.scene.time.delayedCall(totalDuration, () => {
-      this.close();
+    // Show continue indicator after all entries have animated in
+    this.isReady = false;
+    const animDuration = 300 + entries.length * 400 + 300;
+    this.scene.time.delayedCall(animDuration, () => {
+      this.isReady = true;
+      this.showContinueIndicator(cx, boxY + boxHeight);
     });
 
     // Skip listeners
@@ -186,7 +189,32 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     });
   }
 
+  private showContinueIndicator(cx: number, boxBottomY: number): void {
+    const indicator = this.scene.add.text(
+      cx,
+      boxBottomY + 10,
+      `>> ${t('ui.clickToContinue')}`,
+      {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        padding: { top: 4, bottom: 4 },
+      }
+    );
+    indicator.setOrigin(0.5, 0);
+    this.animContainer.add(indicator);
+
+    this.scene.tweens.add({
+      targets: indicator,
+      alpha: 0.3,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
   private skipHandler = (): void => {
+    if (!this.isReady) return;
     this.close();
   };
 
@@ -200,10 +228,6 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     if (this.isClosing) return;
     this.isClosing = true;
 
-    if (this.autoCloseTimer) {
-      this.autoCloseTimer.destroy();
-      this.autoCloseTimer = undefined;
-    }
     this.removeSkipListeners();
 
     this.scene.tweens.add({
@@ -226,10 +250,6 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
   }
 
   destroy(): void {
-    if (this.autoCloseTimer) {
-      this.autoCloseTimer.destroy();
-      this.autoCloseTimer = undefined;
-    }
     if (this.scene) {
       this.removeSkipListeners();
     }
