@@ -216,8 +216,8 @@ const nodes: ScriptNode[] = [
     type: 'transaction',
     descriptionKey: 'ch208.pay_dividend_tx_3000.desc',
     entries: [
-      { account: 'DIVIDENDS_PAYABLE', debit: 2000 },
-      { account: 'CHECKING_ACCOUNT', credit: 2000 },
+      { account: 'DIVIDENDS_PAYABLE', debit: 3000 },
+      { account: 'CHECKING_ACCOUNT', credit: 3000 },
     ],
     showAnimation: true,
     next: 'dialog_after_pay',
