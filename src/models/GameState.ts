@@ -69,6 +69,7 @@ export interface GameSettings {
   sfxVolume: number;
   textSpeed: 'slow' | 'normal' | 'fast';
   showTutorials: boolean;
+  bgmEnabled: boolean;
 }
 
 export function createInitialGameState(playerName: string, level: 1 | 2 | 3 = 1): GameState {
@@ -96,6 +97,7 @@ export function createInitialGameState(playerName: string, level: 1 | 2 | 3 = 1)
       sfxVolume: 0.8,
       textSpeed: 'normal',
       showTutorials: true,
+      bgmEnabled: true,
     },
     version: '1.0.0',
     createdAt: Date.now(),
