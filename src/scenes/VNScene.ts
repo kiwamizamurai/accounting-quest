@@ -5,6 +5,9 @@ import { CharacterPosition } from '../vn/types';
 import { getGameStateManager } from '../state/GameStateManager';
 import { SaveLoadManager } from '../state/SaveLoadManager';
 import { getLanguage, setLanguage } from '../i18n';
+import { getAudioManager } from '../managers/AudioManager';
+import { Button } from '../ui/components/Button';
+import { COLORS } from '../config/constants';
 import { VNDialogBox } from '../ui/vn/VNDialogBox';
 import { ChoicePanel } from '../ui/vn/ChoicePanel';
 import { CharacterPortrait } from '../ui/vn/CharacterPortrait';
@@ -60,6 +63,7 @@ export class VNScene extends Phaser.Scene {
   private scorecard!: Scorecard;
   private portraits: Map<string, CharacterPortrait> = new Map();
   private chapterLabel!: Phaser.GameObjects.Text;
+  private settingsButton!: Phaser.GameObjects.Text;
   private langButton!: Phaser.GameObjects.Text;
   private autoSaveTimer?: Phaser.Time.TimerEvent;
 
@@ -71,6 +75,11 @@ export class VNScene extends Phaser.Scene {
     const chapterId = data.chapterId ?? 1;
     const gameState = getGameStateManager();
     const lang = getLanguage();
+
+    // Initialize audio manager
+    const audioManager = getAudioManager();
+    audioManager.init(this);
+    audioManager.playBGM(gameState.getState().gameLevel as 1 | 2 | 3);
 
     // Script engine
     this.scriptEngine = new ScriptEngine(gameState);
@@ -110,6 +119,21 @@ export class VNScene extends Phaser.Scene {
       padding: { x: 8, y: 4 },
     });
     this.chapterLabel.setDepth(DEPTH.UI_TEXT);
+
+    // Settings button (top-right, above language toggle)
+    this.settingsButton = this.add.text(GAME_WIDTH - 80, 56, '⚙', {
+      fontFamily: '"Courier New", monospace',
+      fontSize: '16px',
+      color: '#ffffff',
+      backgroundColor: '#4a4a6a',
+      padding: { x: 6, y: 3 },
+    });
+    this.settingsButton.setOrigin(1, 0);
+    this.settingsButton.setDepth(DEPTH.UI_TEXT);
+    this.settingsButton.setInteractive({ useHandCursor: true });
+    this.settingsButton.on('pointerdown', () => {
+      this.showSettingsPanel();
+    });
 
     // Language toggle (top-right, below scorecard toggle)
     this.langButton = this.add.text(GAME_WIDTH - 30, 56, lang === 'ja' ? 'EN' : 'JA', {
@@ -167,6 +191,9 @@ export class VNScene extends Phaser.Scene {
     const callbacks: ScriptEngineCallback = {
       onDialog: (speaker, text, _expression) => {
         this.choicePanel.hide();
+        // Play dialog sound
+        const audioManager = getAudioManager();
+        audioManager.playSFX('dialog');
         // Highlight active speaker
         this.highlightSpeaker(speaker);
         this.dialogBox.showDialog(speaker, text, () => {
@@ -186,6 +213,10 @@ export class VNScene extends Phaser.Scene {
 
       onTransaction: (description, entries, showAnimation) => {
         this.dialogBox.hide();
+        // Play transaction SFX
+        const audioManager = getAudioManager();
+        audioManager.playSFX('transaction');
+
         if (showAnimation) {
           this.transactionAnim.play(description, entries, () => {
             this.updateScorecard();
@@ -513,7 +544,200 @@ export class VNScene extends Phaser.Scene {
     });
   }
 
+  private showSettingsPanel(): void {
+    const lang = getLanguage();
+    const gameState = getGameStateManager();
+    const settings = gameState.getState().settings;
+
+    // Overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.6);
+    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    overlay.setInteractive(
+      new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT),
+      Phaser.Geom.Rectangle.Contains
+    );
+    overlay.setDepth(DEPTH.TRANSITION);
+
+    const panelW = 400;
+    const panelH = 320;
+    const panelX = (GAME_WIDTH - panelW) / 2;
+    const panelY = (GAME_HEIGHT - panelH) / 2;
+
+    // Panel background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a1a2e, 0.95);
+    bg.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
+    bg.lineStyle(2, COLORS.ASSETS, 0.8);
+    bg.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
+    bg.setInteractive(
+      new Phaser.Geom.Rectangle(panelX, panelY, panelW, panelH),
+      Phaser.Geom.Rectangle.Contains
+    );
+    bg.setDepth(DEPTH.TRANSITION);
+
+    // Title
+    const titleText = this.add.text(
+      panelX + panelW / 2,
+      panelY + 20,
+      lang === 'ja' ? '設定' : 'Settings',
+      {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '20px',
+        color: '#ffd700',
+        fontStyle: 'bold',
+      }
+    );
+    titleText.setOrigin(0.5, 0);
+    titleText.setDepth(DEPTH.TRANSITION);
+
+    // BGM Toggle Label
+    const bgmLabelY = panelY + 80;
+    const bgmLabel = this.add.text(
+      panelX + 30,
+      bgmLabelY,
+      lang === 'ja' ? 'BGM: ' : 'BGM: ',
+      {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+      }
+    );
+    bgmLabel.setDepth(DEPTH.TRANSITION);
+
+    // BGM Toggle Button
+    const bgmToggleBtn = new Button(this, {
+      x: panelX + 320,
+      y: bgmLabelY + 8,
+      width: 60,
+      height: 28,
+      text: settings.bgmEnabled ? 'ON' : 'OFF',
+      fontSize: 13,
+      onClick: () => {
+        const newValue = !settings.bgmEnabled;
+        gameState.updateSettings({ bgmEnabled: newValue });
+
+        const audioManager = getAudioManager();
+        if (newValue) {
+          audioManager.playBGM();
+        } else {
+          audioManager.stopBGM();
+        }
+
+        // Update button text
+        bgmToggleBtn.setText(newValue ? 'ON' : 'OFF');
+      },
+    });
+    bgmToggleBtn.setDepth(DEPTH.TRANSITION);
+
+    // Music Volume Label
+    const musicVolumeLabelY = panelY + 140;
+    const musicLabel = this.add.text(
+      panelX + 30,
+      musicVolumeLabelY,
+      lang === 'ja' ? '音楽音量: ' : 'Music: ',
+      {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+      }
+    );
+    musicLabel.setDepth(DEPTH.TRANSITION);
+
+    // Music Volume Slider
+    const musicSliderY = musicVolumeLabelY + 25;
+    const musicSliderBg = this.add.graphics();
+    musicSliderBg.fillStyle(0x4a4a6a, 1);
+    musicSliderBg.fillRect(panelX + 30, musicSliderY, 300, 8);
+    musicSliderBg.setDepth(DEPTH.TRANSITION);
+
+    const musicSliderFill = this.add.graphics();
+    musicSliderFill.fillStyle(COLORS.ASSETS, 1);
+    musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * settings.musicVolume, 8);
+    musicSliderFill.setDepth(DEPTH.TRANSITION);
+
+    // Music Volume Slider Interactive Area
+    const musicSliderArea = this.add.zone(panelX + 180, musicSliderY + 4, 300, 16);
+    musicSliderArea.setInteractive({ useHandCursor: true });
+    musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const localX = pointer.x - (panelX + 30);
+      const newVolume = Math.max(0, Math.min(1, localX / 300));
+      gameState.updateSettings({ musicVolume: newVolume });
+      musicSliderFill.clear();
+      musicSliderFill.fillStyle(COLORS.ASSETS, 1);
+      musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * newVolume, 8);
+    });
+
+    // SFX Volume Label
+    const sfxVolumeLabelY = panelY + 210;
+    const sfxLabel = this.add.text(
+      panelX + 30,
+      sfxVolumeLabelY,
+      lang === 'ja' ? 'SFX音量: ' : 'SFX: ',
+      {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+      }
+    );
+    sfxLabel.setDepth(DEPTH.TRANSITION);
+
+    // SFX Volume Slider
+    const sfxSliderY = sfxVolumeLabelY + 25;
+    const sfxSliderBg = this.add.graphics();
+    sfxSliderBg.fillStyle(0x4a4a6a, 1);
+    sfxSliderBg.fillRect(panelX + 30, sfxSliderY, 300, 8);
+    sfxSliderBg.setDepth(DEPTH.TRANSITION);
+
+    const sfxSliderFill = this.add.graphics();
+    sfxSliderFill.fillStyle(COLORS.ASSETS, 1);
+    sfxSliderFill.fillRect(panelX + 30, sfxSliderY, 300 * settings.sfxVolume, 8);
+    sfxSliderFill.setDepth(DEPTH.TRANSITION);
+
+    // SFX Volume Slider Interactive Area
+    const sfxSliderArea = this.add.zone(panelX + 180, sfxSliderY + 4, 300, 16);
+    sfxSliderArea.setInteractive({ useHandCursor: true });
+    sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const localX = pointer.x - (panelX + 30);
+      const newVolume = Math.max(0, Math.min(1, localX / 300));
+      gameState.updateSettings({ sfxVolume: newVolume });
+      sfxSliderFill.clear();
+      sfxSliderFill.fillStyle(COLORS.ASSETS, 1);
+      sfxSliderFill.fillRect(panelX + 30, sfxSliderY, 300 * newVolume, 8);
+    });
+
+    // Close button
+    const closeBtn = new Button(this, {
+      x: panelX + panelW / 2,
+      y: panelY + panelH - 30,
+      width: 100,
+      height: 36,
+      text: lang === 'ja' ? '閉じる' : 'Close',
+      onClick: () => {
+        overlay.destroy();
+        bg.destroy();
+        bgmToggleBtn.destroy();
+        bgmLabel.destroy();
+        musicLabel.destroy();
+        musicSliderBg.destroy();
+        musicSliderFill.destroy();
+        musicSliderArea.destroy();
+        sfxLabel.destroy();
+        sfxSliderBg.destroy();
+        sfxSliderFill.destroy();
+        sfxSliderArea.destroy();
+        titleText.destroy();
+        closeBtn.destroy();
+      },
+    });
+    closeBtn.setDepth(DEPTH.TRANSITION);
+  }
+
   shutdown(): void {
+    // Stop BGM when scene shuts down
+    const audioManager = getAudioManager();
+    audioManager.stopBGM();
+
     if (this.autoSaveTimer) {
       this.autoSaveTimer.destroy();
     }

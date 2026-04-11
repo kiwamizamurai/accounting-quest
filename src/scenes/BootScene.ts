@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SCENES, COLORS } from '../config/constants';
+import { getAudioManager } from '../managers/AudioManager';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -36,8 +37,10 @@ export class BootScene extends Phaser.Scene {
       loadingText.destroy();
     });
 
-    // No external assets to load - all generated dynamically via Canvas
-    // Trigger at least one load event for progress bar
+    // Preload audio assets
+    getAudioManager().preload(this);
+
+    // Placeholder asset for progress bar
     this.load.image('__placeholder__', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
   }
 
