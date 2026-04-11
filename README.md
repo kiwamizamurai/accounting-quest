@@ -6,7 +6,12 @@ A visual novel-style educational game that teaches accounting fundamentals throu
 
 ## Overview
 
-Players learn accounting concepts progressively across 10 chapters, starting from the basic accounting equation and advancing through income statements, accrual accounting, depreciation, and financial ratios. Every transaction is recorded using double-entry bookkeeping, and players can view both the Balance Sheet (BS) and Income Statement (P&L) in real time.
+Players learn accounting concepts progressively across three difficulty levels (32 chapters total):
+- **Level 1 (Lemonade Stand, Ch.1-10)**: Foundation - accounting equation, double-entry bookkeeping, balance sheet, income statement
+- **Level 2 (Lemonade Corporation, Ch.101-112)**: Intermediate - multi-level account structures, corporate accounting, consolidation prep
+- **Level 3 (Lemonade Group, Ch.201-210)**: Advanced - manufacturing accounting, consolidation, cash flow, group management
+
+Every transaction is recorded using double-entry bookkeeping, and players can view Balance Sheet, Income Statement, and Cash Flow Statement in real time.
 
 ## Chapter Learning Content
 
@@ -86,6 +91,42 @@ Players learn accounting concepts progressively across 10 chapters, starting fro
 - Final quiz (3 questions)
 - P&L and BS connection summary
 
+## Level 2: Lemonade Corporation (Ch.101-112)
+
+Moves from sole proprietorship to corporate accounting with more complex accounts and banking operations.
+
+### Key Topics
+- **Ch.101**: Multi-account banking (Checking vs Savings accounts)
+- **Ch.102-104**: Fixed assets, prepayment, consumption tax accounting
+- **Ch.105-107**: Petty cash management, temporary accounts, overdrafts
+- **Ch.108-110**: Allowance for doubtful accounts, fixed asset disposal with gains/losses
+- **Ch.111**: Share issuance and capital structure
+- **Ch.112**: Final BS/P&L review and dividend distribution
+
+### Major Concepts
+- Bank account management (multiple accounts)
+- Consumption tax (input tax, output tax, net settlement)
+- Fixed asset disposal and gain/loss recognition
+- Equity structure and shareholder accounts
+
+## Level 3: Lemonade Group (Ch.201-210)
+
+Advances to manufacturing and corporate group accounting with consolidated statements.
+
+### Key Topics
+- **Ch.201**: Manufacturing cost structure (materials, labor, overhead)
+- **Ch.202-205**: Job order vs process costing, standard costing, variance analysis
+- **Ch.206**: Subsidiary acquisition and goodwill recognition
+- **Ch.207**: Consolidation entries and intercompany elimination
+- **Ch.208**: Shareholder equity, dividend declaration and payment
+- **Ch.209-210**: Cash flow statement (operating, investing, financing), group performance
+
+### Major Concepts
+- **Manufacturing Accounting**: Work-in-Process, allocation of manufacturing overhead
+- **Consolidation**: Goodwill, elimination of intercompany transactions
+- **Dividend Policy**: Declaration (Retained Earnings → Dividends Payable), Payment (Cash reduction)
+- **Cash Flow Analysis**: Indirect method, three cash flow categories
+
 ## Account List
 
 | Account | Japanese | Type | Category | First Appears | Description |
@@ -109,6 +150,27 @@ Players learn accounting concepts progressively across 10 chapters, starting fro
 | Depreciation Expense | 減価償却費 | Expense | Operating | Ch.7 | Periodic equipment cost allocation |
 | Interest Expense | 支払利息 | Expense | Non-operating | Ch.3 | Cost of borrowing |
 | Bad Debt Expense | 貸倒損失 | Expense | Non-operating | Ch.4 | Uncollectible receivables |
+
+### Level 2 & 3 Additional Accounts
+
+**Banking & Cash Management**
+- Checking Account, Savings Account, Petty Cash, Overdraft
+
+**Corporate Equity**
+- Dividends Payable, Legal Reserve, Capital Surplus
+
+**Manufacturing & Inventory** (Lv3 only)
+- Work-in-Process, Raw Materials, Finished Goods, Manufacturing Overhead
+
+**Investment & Consolidation** (Lv3 only)
+- Subsidiary Securities, Goodwill
+
+**Taxes & Regulatory** (Lv2+)
+- Consumption Tax Receivable/Payable, Accrued Consumption Tax
+- Income Tax Withholding, Accrued Corporate Tax
+
+**Other** (Lv2+)
+- Electronically Recorded Payable/Receivable, Temporary Accounts, Allowance for Doubtful Accounts
 
 ## Financial Statements
 
@@ -148,8 +210,28 @@ Shows **business performance over a period** using T-account format.
          Expenses + Net Income = Revenues (both sides balance)
 ```
 
-### How BS and P&L Connect
-The **Net Income** from the P&L flows into **Retained Earnings** on the BS. The P&L measures the flow of income and expenses over a period, while the BS measures the stock of assets, liabilities, and equity at a specific point. Together they provide the complete financial picture.
+### Cash Flow Statement (CF / キャッシュフロー計算書) [Lv3]
+Shows **actual cash movements** across three categories over a period.
+
+```
+Operating Cash Flow (業務活動)    +5,000G
+  (Cash from sales, payments, operations)
+Investing Cash Flow (投資活動)    -3,000G
+  (Equipment purchases, asset disposals)
+Financing Cash Flow (財務活動)    +2,000G
+  (Borrowing, dividend payments, capital)
+─────────────────────────────────
+Net Change in Cash                +4,000G
+```
+
+### How BS, P&L, and CF Connect
+1. **P&L → BS**: Net Income flows to Retained Earnings
+2. **BS → CF**: Beginning cash position
+3. **CF**: Explains *why* cash changed despite profit/loss
+   - High profit but low cash = tied up in receivables/inventory
+   - Low profit but high cash = collecting old receivables or borrowing
+
+The three statements together show the complete financial story: profitability (P&L), financial position (BS), and liquidity (CF).
 
 ## Key Accounting Concepts
 
@@ -166,6 +248,21 @@ The **Net Income** from the P&L flows into **Retained Earnings** on the BS. The 
 | Capital vs Revenue Expenditure | Long-term assets vs immediate expenses | Ch.7 |
 | Cash vs Profit | Cash flow and accounting profit can differ | Ch.8 |
 | Inventory Valuation | FIFO/LIFO affect COGS and profit differently | Ch.6 |
+
+### Level 2 & 3 Concepts
+
+| Concept | Description | Chapter |
+|---------|-------------|---------|
+| Petty Cash Management | Imprest system for small cash transactions | Ch.106 |
+| Fixed Asset Disposal | Gain/loss recognition on asset sales | Ch.110 |
+| Consumption Tax | Input/output tax accounting and settlement | Ch.104 |
+| Dividend Declaration & Payment | Two-step process: declare (reduce RE) then pay (reduce cash) | Ch.208 |
+| Manufacturing Cost Accounting | Allocating materials, labor, overhead to WIP | Ch.202 |
+| Job Order vs Process Costing | Cost accumulation methods for different production types | Ch.202-205 |
+| Goodwill | Premium paid above fair value in acquisition | Ch.206 |
+| Consolidation | Combining parent + subsidiary financials, eliminating intercompany | Ch.207 |
+| Cash Flow Statement | Reconciling accrual profit to actual cash movement | Ch.209 |
+| Group Management | Managing multiple entities as economic unit | Ch.207-210 |
 
 ## Controls
 
