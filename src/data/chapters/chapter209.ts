@@ -232,28 +232,9 @@ const nodes: ScriptNode[] = [
       { account: 'CHECKING_ACCOUNT', credit: 3000 },
     ],
     showAnimation: true,
-    next: 'check_remaining_dividend',
-  },
-
-  // === Conditional: Pay remaining dividend only if 3000 was declared in Ch208 ===
-  {
-    id: 'check_remaining_dividend',
-    type: 'conditional',
-    condition: { type: 'flag', flag: 'dividendAmount', value: 3000 },
-    trueNext: 'dividend_payment_tx',
-    falseNext: 'dialog_after_financing',
-  },
-  {
-    id: 'dividend_payment_tx',
-    type: 'transaction',
-    descriptionKey: 'ch209.dividend_payment_tx.desc',
-    entries: [
-      { account: 'DIVIDENDS_PAYABLE', debit: 1000 },
-      { account: 'CHECKING_ACCOUNT', credit: 1000 },
-    ],
-    showAnimation: true,
     next: 'dialog_after_financing',
   },
+
   {
     id: 'dialog_after_financing',
     type: 'dialog',
