@@ -5,11 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev           # Start Vite dev server
+npm run dev           # Start Vite dev server (http://localhost:5173)
 npm run build         # Type-check + production build
-npm run lint          # Type-check only (tsc --noEmit)
-npm run test          # Run all tests (vitest watch)
-npm run test:coverage # Run tests with v8 coverage report
+npm run preview       # Preview production build locally
+npm run lint          # Type-check only (tsc --noEmit, strict mode)
+npm run test          # Run all tests (vitest watch mode)
+npm run test:ui       # Run tests with Vitest UI (http://localhost:51204)
+npm run test:coverage # Run tests once with v8 coverage report (html in coverage/)
+npm run deploy        # Build and deploy to gh-pages (requires gh-pages CLI)
 
 # Run a single test file
 npx vitest run tests/accounting.test.ts
@@ -49,13 +52,35 @@ Account identifiers use the `AccountCategory` enum from `src/models/Account.ts`.
 
 ### i18n
 
-All visible text uses i18n keys resolved via `t(key)` from `src/i18n/`. Translation files are flat JSON (`src/i18n/ja.json`, `src/i18n/en.json`). Default language is Japanese (`ja`). Chapter dialog keys follow the pattern `ch1.dialog_1`.
+All visible text uses i18n keys resolved via `t(key)` from `src/i18n/`. Translation files are flat JSON:
+- `src/i18n/ja.json` (Japanese)
+- `src/i18n/en.json` (English)
+
+Default language is Japanese (`ja`). Chapter dialog keys follow the pattern `ch1.dialog_1`. New text must be added to both language files.
 
 ### Adding a New Chapter
 
-1. Create `src/data/chapters/chapterN.ts` exporting a `ChapterScript`
-2. Add all dialog keys to both `ja.json` and `en.json`
-3. Import and register the chapter in `src/scenes/VNScene.ts` (in `create()` where `allChapters` is assembled)
+1. Create `src/data/chapters/chapterN.ts` exporting a `ChapterScript` with typed nodes array
+2. Structure typically includes:
+   - `narration` – scene-setting text
+   - `dialog` – character speech
+   - `transaction` – journal entries with optional animations
+   - `choice` / `quiz` / `journal_entry_input` – interactive prompts (choice/quiz require action in handler, journal_entry_input validates player input)
+   - `report` – show Balance Sheet or P&L snapshot
+   - `character_enter/exit`, `background` – scene setup
+   - `conditional` – branch logic based on flags
+3. Add all i18n keys (dialog, narration, choice labels) to both `src/i18n/ja.json` and `src/i18n/en.json`
+4. Register the chapter in `src/scenes/VNScene.ts`:
+   - Import it at the top
+   - Add to `allChapters` array in `create()` method
+5. Game configuration is in `src/config/chapters.config.ts` if chapter metadata (title, level) is needed
+
+### Configuration
+
+Key config files:
+- `src/config/game.config.ts` – Phaser game options (canvas size, physics, etc.)
+- `src/config/chapters.config.ts` – Chapter metadata registry (titles, levels, unlock order)
+- `src/config/constants.ts` – Game-wide constants (animation durations, UI positions, etc.)
 
 ### Path Alias
 
@@ -67,7 +92,7 @@ Tests live in `tests/` and use vitest + jsdom. Phaser is mocked via `tests/setup
 
 ### Testing with Chrome DevTools MCP
 
-Chrome DevTools MCP allows AI agents to directly control and inspect the browser for verifying game behavior.
+Chrome DevTools MCP allows AI agents to directly control and inspect the browser for end-to-end verification of game behavior. This is useful for testing gameplay flow, UI interactions, financial calculations, and visual rendering.
 
 **Setup:**
 
@@ -77,10 +102,18 @@ Chrome DevTools MCP allows AI agents to directly control and inspect the browser
 **Usage:**
 
 1. Start the dev server with `npm run dev`
-2. The AI agent launches and connects to Chrome via Chrome DevTools MCP
+2. The AI agent connects to Chrome via Chrome DevTools MCP automatically
 3. Available verifications:
-   - Take page screenshots to confirm visual rendering
-   - Monitor console logs and errors
-   - Inspect DOM elements
-   - Execute JavaScript to check game state
-   - Monitor network requests
+   - `take_screenshot` – confirm visual rendering of scenes, dialogs, UI panels
+   - `take_snapshot` – inspect DOM structure and element states
+   - `list_console_messages` – verify no errors/warnings during gameplay
+   - `evaluate_script` – check game state (e.g., `getGameStateManager().getBalanceSheet()`)
+   - `click`, `fill`, `press_key` – simulate player interactions (advancing dialogs, making choices)
+   - `list_network_requests` – verify no unexpected API calls or resource load failures
+
+**Example workflow:**
+1. Navigate to game scene
+2. Take screenshot to verify chapter renders correctly
+3. Click to advance dialog, take screenshot to confirm text updated
+4. Execute script to check accounting engine validation
+5. Verify no console errors
