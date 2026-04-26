@@ -188,6 +188,9 @@ export enum BusinessEventType {
 
   // Lv3 Chapter 10: Analysis
   COMPREHENSIVE_ANALYSIS = 'COMPREHENSIVE_ANALYSIS',
+
+  // Generic VN script-driven transaction
+  VN_SCRIPT_TRANSACTION = 'VN_SCRIPT_TRANSACTION',
 }
 
 export function createJournalEntry(

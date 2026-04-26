@@ -143,6 +143,7 @@ export enum AccountCategory {
 
   // Lv3 - Expenses
   LOSS_ON_SALE_OF_SECURITIES = 'LOSS_ON_SALE_OF_SECURITIES',
+  VALUATION_LOSS_ON_SECURITIES = 'VALUATION_LOSS_ON_SECURITIES',
   GOODWILL_AMORTIZATION = 'GOODWILL_AMORTIZATION',
   RESEARCH_AND_DEVELOPMENT = 'RESEARCH_AND_DEVELOPMENT',
   MANUFACTURING_OVERHEAD = 'MANUFACTURING_OVERHEAD',
@@ -269,6 +270,7 @@ export function getAccountType(category: AccountCategory): AccountType {
     [AccountCategory.LOSS_ON_SALE_OF_FIXED_ASSETS]: AccountType.EXPENSE,
     [AccountCategory.TAX_EXPENSE]: AccountType.EXPENSE,
     [AccountCategory.LOSS_ON_SALE_OF_SECURITIES]: AccountType.EXPENSE,
+    [AccountCategory.VALUATION_LOSS_ON_SECURITIES]: AccountType.EXPENSE,
     [AccountCategory.GOODWILL_AMORTIZATION]: AccountType.EXPENSE,
     [AccountCategory.RESEARCH_AND_DEVELOPMENT]: AccountType.EXPENSE,
     [AccountCategory.MANUFACTURING_OVERHEAD]: AccountType.EXPENSE,
@@ -420,6 +422,7 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
 
   // Lv3
   { category: AccountCategory.LOSS_ON_SALE_OF_SECURITIES, name: 'Loss on Sale of Securities', nameJa: '有価証券売却損', level: 3 },
+  { category: AccountCategory.VALUATION_LOSS_ON_SECURITIES, name: 'Valuation Loss on Securities', nameJa: '有価証券評価損', level: 3 },
   { category: AccountCategory.GOODWILL_AMORTIZATION, name: 'Goodwill Amortization', nameJa: 'のれん償却', level: 3 },
   { category: AccountCategory.RESEARCH_AND_DEVELOPMENT, name: 'Research & Development', nameJa: '研究開発費', level: 3 },
   { category: AccountCategory.MANUFACTURING_OVERHEAD, name: 'Manufacturing Overhead', nameJa: '製造間接費', level: 3 },
@@ -465,6 +468,12 @@ export function isDebitIncrease(type: AccountType): boolean {
 // Get accounts for a specific game level (includes all lower levels)
 export function getAccountDefsForLevel(level: 1 | 2 | 3): AccountDef[] {
   return ALL_ACCOUNT_DEFS.filter(def => def.level <= level);
+}
+
+// Check if a string is a valid AccountCategory
+const accountCategoryValues = new Set(Object.values(AccountCategory));
+export function isValidAccountCategory(value: string): value is AccountCategory {
+  return accountCategoryValues.has(value as AccountCategory);
 }
 
 // Check if an account is a contra account (reduces its parent type)

@@ -13,6 +13,12 @@ function generateEntryId(): string {
   return `JE-${++entryCounter}-${Date.now()}`;
 }
 
+function validateAmount(amount: number, label: string): void {
+  if (amount < 0) {
+    throw new Error(`TransactionProcessor: ${label} must not be negative (got ${amount})`);
+  }
+}
+
 /**
  * Create transaction templates for common business events
  */
@@ -32,6 +38,7 @@ export class TransactionProcessor {
    * Debit: Cash | Credit: Owner's Capital
    */
   createOwnerInvestment(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CASH, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.OWNERS_CAPITAL, debit: 0, credit: amount },
@@ -53,6 +60,7 @@ export class TransactionProcessor {
    * Debit: Inventory | Credit: Cash
    */
   createCashPurchase(amount: number, date: GameDate, description: string = 'lemons'): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.INVENTORY, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CASH, debit: 0, credit: amount },
@@ -80,6 +88,8 @@ export class TransactionProcessor {
     costAmount: number,
     date: GameDate
   ): JournalEntry[] {
+    validateAmount(saleAmount, 'saleAmount');
+    validateAmount(costAmount, 'costAmount');
     const saleEntry = createJournalEntry(
       generateEntryId(),
       date,
@@ -119,6 +129,7 @@ export class TransactionProcessor {
     date: GameDate,
     description: string
   ): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: expenseCategory, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CASH, debit: 0, credit: amount },
@@ -140,6 +151,7 @@ export class TransactionProcessor {
    * Debit: Cash | Credit: Loans Payable
    */
   createLoan(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CASH, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.LOANS_PAYABLE, debit: 0, credit: amount },
@@ -165,6 +177,8 @@ export class TransactionProcessor {
     interest: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(principal, 'principal');
+    validateAmount(interest, 'interest');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.LOANS_PAYABLE, debit: principal, credit: 0 },
       { accountCategory: AccountCategory.INTEREST_EXPENSE, debit: interest, credit: 0 },
@@ -577,7 +591,11 @@ export class TransactionProcessor {
     socialInsurance: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(grossWages, 'grossWages');
+    validateAmount(incomeTax, 'incomeTax');
+    validateAmount(socialInsurance, 'socialInsurance');
     const netPay = grossWages - incomeTax - socialInsurance;
+    validateAmount(netPay, 'netPay (grossWages - incomeTax - socialInsurance)');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.WAGES_EXPENSE, debit: grossWages, credit: 0 },
       { accountCategory: AccountCategory.INCOME_TAX_WITHHOLDING, debit: 0, credit: incomeTax },
@@ -694,6 +712,10 @@ export class TransactionProcessor {
     costAmount: number,
     date: GameDate
   ): JournalEntry[] {
+    validateAmount(saleAmount, 'saleAmount');
+    validateAmount(feeAmount, 'feeAmount');
+    validateAmount(costAmount, 'costAmount');
+    validateAmount(saleAmount - feeAmount, 'saleAmount - feeAmount (credit card receivable)');
     const saleEntry = createJournalEntry(
       generateEntryId(),
       date,
@@ -1086,7 +1108,7 @@ export class TransactionProcessor {
       lines.push({ accountCategory: AccountCategory.VALUATION_GAIN_ON_SECURITIES, debit: 0, credit: gain });
     } else {
       const loss = bookValue - fairValue;
-      lines.push({ accountCategory: AccountCategory.LOSS_ON_SALE_OF_SECURITIES, debit: loss, credit: 0 });
+      lines.push({ accountCategory: AccountCategory.VALUATION_LOSS_ON_SECURITIES, debit: loss, credit: 0 });
       lines.push({ accountCategory: AccountCategory.TRADING_SECURITIES, debit: 0, credit: loss });
     }
 

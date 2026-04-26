@@ -288,11 +288,21 @@ export class GameStateManager {
   static fromJSON(json: string): GameStateManager {
     const data = JSON.parse(json);
 
+    if (!data || !data.player || typeof data.player.name !== 'string') {
+      throw new Error('Invalid save data: missing or malformed player data');
+    }
+    if (!Array.isArray(data.accounts)) {
+      throw new Error('Invalid save data: accounts must be an array');
+    }
+    if (!Array.isArray(data.journalEntries)) {
+      throw new Error('Invalid save data: journalEntries must be an array');
+    }
+
     const manager = new GameStateManager(data.player.name);
     manager.state = {
       ...data,
       accounts: new Map(data.accounts),
-      chapterProgress: new Map(data.chapterProgress),
+      chapterProgress: new Map(data.chapterProgress ?? []),
     };
 
     manager.accountingEngine = new AccountingEngine(

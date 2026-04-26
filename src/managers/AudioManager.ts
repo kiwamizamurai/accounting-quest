@@ -138,8 +138,8 @@ export class AudioManager {
    * Update the volume of the currently playing BGM
    */
   setMusicVolume(volume: number): void {
-    if (this.currentBgm && this.currentBgm.isPlaying) {
-      (this.currentBgm as Phaser.Sound.WebAudioSound).setVolume(volume);
+    if (this.currentBgm && this.currentBgm.isPlaying && 'setVolume' in this.currentBgm) {
+      (this.currentBgm as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).setVolume(volume);
     }
   }
 

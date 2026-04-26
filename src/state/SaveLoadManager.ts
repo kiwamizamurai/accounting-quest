@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from '../config/constants';
+import { CURRENT_SAVE_VERSION } from '../models/GameState';
 import { GameStateManager, setGameStateManager } from './GameStateManager';
 
 export interface SaveSlot {
@@ -68,6 +69,10 @@ export class SaveLoadManager {
       }
 
       const saveSlot: SaveSlot = JSON.parse(saved);
+      const saveData = JSON.parse(saveSlot.data);
+      if (saveData.version && saveData.version !== CURRENT_SAVE_VERSION) {
+        console.warn(`Save data version mismatch: save=${saveData.version}, current=${CURRENT_SAVE_VERSION}`);
+      }
       const manager = GameStateManager.fromJSON(saveSlot.data);
       setGameStateManager(manager);
 
@@ -174,6 +179,10 @@ export class SaveLoadManager {
       }
 
       const saveSlot: SaveSlot = JSON.parse(saved);
+      const saveData = JSON.parse(saveSlot.data);
+      if (saveData.version && saveData.version !== CURRENT_SAVE_VERSION) {
+        console.warn(`Auto-save version mismatch: save=${saveData.version}, current=${CURRENT_SAVE_VERSION}`);
+      }
       const manager = GameStateManager.fromJSON(saveSlot.data);
       setGameStateManager(manager);
 
