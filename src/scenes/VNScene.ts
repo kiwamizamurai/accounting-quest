@@ -545,6 +545,7 @@ export class VNScene extends Phaser.Scene {
   }
 
   private showSettingsPanel(): void {
+    this.dialogBox.blockInput();
     const lang = getLanguage();
     const gameState = getGameStateManager();
     const settings = gameState.getState().settings;
@@ -714,6 +715,7 @@ export class VNScene extends Phaser.Scene {
       height: 36,
       text: lang === 'ja' ? '閉じる' : 'Close',
       onClick: () => {
+        this.dialogBox.unblockInput();
         overlay.destroy();
         bg.destroy();
         bgmToggleBtn.destroy();
