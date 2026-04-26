@@ -324,7 +324,8 @@ export class TitleScene extends Phaser.Scene {
       text: settings.bgmEnabled ? 'ON' : 'OFF',
       fontSize: 13,
       onClick: () => {
-        const newValue = !settings.bgmEnabled;
+        const currentSettings = gameState.getState().settings;
+        const newValue = !currentSettings.bgmEnabled;
         gameState.updateSettings({ bgmEnabled: newValue });
 
         const audioManager = getAudioManager();

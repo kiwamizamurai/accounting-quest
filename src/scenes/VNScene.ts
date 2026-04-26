@@ -614,7 +614,8 @@ export class VNScene extends Phaser.Scene {
       text: settings.bgmEnabled ? 'ON' : 'OFF',
       fontSize: 13,
       onClick: () => {
-        const newValue = !settings.bgmEnabled;
+        const currentSettings = gameState.getState().settings;
+        const newValue = !currentSettings.bgmEnabled;
         gameState.updateSettings({ bgmEnabled: newValue });
 
         const audioManager = getAudioManager();
@@ -659,6 +660,7 @@ export class VNScene extends Phaser.Scene {
     // Music Volume Slider Interactive Area
     const musicSliderArea = this.add.zone(panelX + 180, musicSliderY + 4, 300, 16);
     musicSliderArea.setInteractive({ useHandCursor: true });
+    musicSliderArea.setDepth(DEPTH.TRANSITION);
     musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
@@ -698,6 +700,7 @@ export class VNScene extends Phaser.Scene {
     // SFX Volume Slider Interactive Area
     const sfxSliderArea = this.add.zone(panelX + 180, sfxSliderY + 4, 300, 16);
     sfxSliderArea.setInteractive({ useHandCursor: true });
+    sfxSliderArea.setDepth(DEPTH.TRANSITION);
     sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
