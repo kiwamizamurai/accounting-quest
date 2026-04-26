@@ -91,6 +91,10 @@ export class ScriptEngine {
 
   advance(nextNodeId?: string): void {
     if (nextNodeId) {
+      if (!this.nodeMap.has(nextNodeId)) {
+        console.error(`ScriptEngine: node ID "${nextNodeId}" not found in chapter ${this.vnState.currentChapter}`);
+        return;
+      }
       this.vnState.currentNodeId = nextNodeId;
     }
     this.executeCurrentNode();
@@ -113,8 +117,9 @@ export class ScriptEngine {
       player.quizScore++;
     }
 
+    // Only set the next node ID; do not execute yet.
+    // The caller (VNScene) will call advance() after showing feedback.
     this.vnState.currentNodeId = node.next;
-    this.executeCurrentNode();
     return isCorrect;
   }
 
@@ -132,8 +137,9 @@ export class ScriptEngine {
       }
     }
 
+    // Only set the next node ID; do not execute yet.
+    // The caller (VNScene) will call advance() after showing feedback.
     this.vnState.currentNodeId = node.next;
-    this.executeCurrentNode();
     return isCorrect;
   }
 
@@ -233,11 +239,20 @@ export class ScriptEngine {
         }
         case 'conditional': {
           const result = this.conditionEvaluator.evaluate(node.condition, this.vnState);
-          this.vnState.currentNodeId = result ? node.trueNext : node.falseNext;
+          const nextId = result ? node.trueNext : node.falseNext;
+          if (!this.nodeMap.has(nextId)) {
+            console.error(`ScriptEngine: conditional branch target "${nextId}" not found in chapter ${this.vnState.currentChapter}`);
+            return;
+          }
+          this.vnState.currentNodeId = nextId;
           continue; // loop instead of recurse
         }
         case 'set_flag': {
           Object.assign(this.vnState.flags, node.flags);
+          if (!this.nodeMap.has(node.next)) {
+            console.error(`ScriptEngine: set_flag next node "${node.next}" not found in chapter ${this.vnState.currentChapter}`);
+            return;
+          }
           this.vnState.currentNodeId = node.next;
           continue; // loop instead of recurse
         }

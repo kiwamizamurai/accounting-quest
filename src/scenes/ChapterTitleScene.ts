@@ -102,17 +102,24 @@ export class ChapterTitleScene extends Phaser.Scene {
     });
 
     // Transition to VN scene after delay
-    this.time.delayedCall(3500, () => {
+    let transitioned = false;
+    const goToVNScene = () => {
+      if (transitioned) return;
+      transitioned = true;
+      this.input.keyboard?.off('keydown-SPACE', skip);
+      this.input.keyboard?.off('keydown-ENTER', skip);
+      this.input.off('pointerdown', skip);
+      if (autoTransition) autoTransition.destroy();
+      this.scene.start('VNScene', { chapterId });
+    };
+
+    const autoTransition = this.time.delayedCall(3500, () => {
       this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('VNScene', { chapterId });
-      });
+      this.cameras.main.once('camerafadeoutcomplete', goToVNScene);
     });
 
     // Allow skip with click/space
-    const skip = () => {
-      this.scene.start('VNScene', { chapterId });
-    };
+    const skip = () => goToVNScene();
     this.input.keyboard?.once('keydown-SPACE', skip);
     this.input.keyboard?.once('keydown-ENTER', skip);
     this.input.once('pointerdown', skip);

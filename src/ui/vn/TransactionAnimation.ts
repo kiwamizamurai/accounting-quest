@@ -14,6 +14,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
   private onComplete?: () => void;
   private isClosing = false;
   private isReady = false;
+  private indicatorTween?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -204,7 +205,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     indicator.setOrigin(0.5, 0);
     this.animContainer.add(indicator);
 
-    this.scene.tweens.add({
+    this.indicatorTween = this.scene.tweens.add({
       targets: indicator,
       alpha: 0.3,
       duration: 500,
@@ -246,6 +247,10 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
   }
 
   private clearAnimation(): void {
+    if (this.indicatorTween) {
+      this.indicatorTween.stop();
+      this.indicatorTween = undefined;
+    }
     this.animContainer.removeAll(true);
   }
 

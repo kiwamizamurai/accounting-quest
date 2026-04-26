@@ -30,6 +30,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
   private typingSpeed: number;
   private typingTimer: Phaser.Time.TimerEvent | null = null;
   private onComplete?: () => void;
+  private blinkTween?: Phaser.Tweens.Tween;
 
   private boxWidth = GAME_WIDTH - 40;
   private boxHeight = 140;
@@ -89,7 +90,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
     this.add(this.continueIndicator);
 
     // Blinking animation for continue indicator
-    scene.tweens.add({
+    this.blinkTween = scene.tweens.add({
       targets: this.continueIndicator,
       alpha: 0,
       duration: 500,
@@ -270,6 +271,10 @@ export class DialogBox extends Phaser.GameObjects.Container {
     this.scene.input.keyboard?.off('keydown-ENTER', this.handleInput, this);
     this.scene.input.off('pointerdown', this.handleInput, this);
     this.stopTyping();
+    if (this.blinkTween) {
+      this.blinkTween.stop();
+      this.blinkTween = undefined;
+    }
     super.destroy();
   }
 }
