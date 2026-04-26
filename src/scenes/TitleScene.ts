@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH } from '../config/constants';
 import { Button } from '../ui/components/Button';
 import { getLanguage, setLanguage } from '../i18n';
 import { SaveLoadManager } from '../state/SaveLoadManager';
@@ -267,6 +267,7 @@ export class TitleScene extends Phaser.Scene {
       new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT),
       Phaser.Geom.Rectangle.Contains
     );
+    overlay.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(overlay);
 
     const panelW = 400;
@@ -284,6 +285,7 @@ export class TitleScene extends Phaser.Scene {
       new Phaser.Geom.Rectangle(panelX, panelY, panelW, panelH),
       Phaser.Geom.Rectangle.Contains
     );
+    bg.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(bg);
 
     // Title
@@ -299,6 +301,7 @@ export class TitleScene extends Phaser.Scene {
       }
     );
     titleText.setOrigin(0.5, 0);
+    titleText.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(titleText);
 
     // BGM Toggle Label
@@ -313,6 +316,7 @@ export class TitleScene extends Phaser.Scene {
         color: '#ffffff',
       }
     );
+    bgmLabel.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(bgmLabel);
 
     // BGM Toggle Button
@@ -339,6 +343,7 @@ export class TitleScene extends Phaser.Scene {
         bgmToggleBtn.setText(newValue ? 'ON' : 'OFF');
       },
     });
+    bgmToggleBtn.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(bgmToggleBtn);
 
     // Music Volume Label
@@ -353,6 +358,7 @@ export class TitleScene extends Phaser.Scene {
         color: '#ffffff',
       }
     );
+    musicLabel.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(musicLabel);
 
     // Music Volume Slider
@@ -360,16 +366,19 @@ export class TitleScene extends Phaser.Scene {
     const musicSliderBg = this.add.graphics();
     musicSliderBg.fillStyle(0x4a4a6a, 1);
     musicSliderBg.fillRect(panelX + 30, musicSliderY, 300, 8);
+    musicSliderBg.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(musicSliderBg);
 
     const musicSliderFill = this.add.graphics();
     musicSliderFill.fillStyle(COLORS.ASSETS, 1);
     musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * settings.musicVolume, 8);
+    musicSliderFill.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(musicSliderFill);
 
     // Music Volume Slider Interactive Area
     const musicSliderArea = this.add.zone(panelX + 180, musicSliderY + 4, 300, 16);
     musicSliderArea.setInteractive({ useHandCursor: true });
+    musicSliderArea.setDepth(DEPTH.TRANSITION);
     musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
@@ -393,6 +402,7 @@ export class TitleScene extends Phaser.Scene {
         color: '#ffffff',
       }
     );
+    sfxLabel.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(sfxLabel);
 
     // SFX Volume Slider
@@ -400,16 +410,19 @@ export class TitleScene extends Phaser.Scene {
     const sfxSliderBg = this.add.graphics();
     sfxSliderBg.fillStyle(0x4a4a6a, 1);
     sfxSliderBg.fillRect(panelX + 30, sfxSliderY, 300, 8);
+    sfxSliderBg.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(sfxSliderBg);
 
     const sfxSliderFill = this.add.graphics();
     sfxSliderFill.fillStyle(COLORS.ASSETS, 1);
     sfxSliderFill.fillRect(panelX + 30, sfxSliderY, 300 * settings.sfxVolume, 8);
+    sfxSliderFill.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(sfxSliderFill);
 
     // SFX Volume Slider Interactive Area
     const sfxSliderArea = this.add.zone(panelX + 180, sfxSliderY + 4, 300, 16);
     sfxSliderArea.setInteractive({ useHandCursor: true });
+    sfxSliderArea.setDepth(DEPTH.TRANSITION);
     sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
@@ -429,6 +442,7 @@ export class TitleScene extends Phaser.Scene {
       text: lang === 'ja' ? '戻る' : 'Back',
       onClick: () => this.createUI(),
     });
+    closeBtn.setDepth(DEPTH.TRANSITION);
     this.uiElements.push(closeBtn);
   }
 

@@ -44,6 +44,7 @@ export interface ChoiceEffects {
 
 export interface TransactionDef {
   entries: { account: string; debit?: number; credit?: number }[];
+  eventType?: string;
 }
 
 export interface TransactionNode {
@@ -53,6 +54,7 @@ export interface TransactionNode {
   entries: { account: string; debit?: number; credit?: number }[];
   showAnimation: boolean;
   next: string;
+  eventType?: string;
 }
 
 export interface ReportNode {

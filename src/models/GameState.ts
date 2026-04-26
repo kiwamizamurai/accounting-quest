@@ -72,6 +72,8 @@ export interface GameSettings {
   bgmEnabled: boolean;
 }
 
+export const CURRENT_SAVE_VERSION = '1.0.0';
+
 export function createInitialGameState(playerName: string, level: 1 | 2 | 3 = 1): GameState {
   const accounts = new Map<AccountCategory, Account>();
 
@@ -99,7 +101,7 @@ export function createInitialGameState(playerName: string, level: 1 | 2 | 3 = 1)
       showTutorials: true,
       bgmEnabled: true,
     },
-    version: '1.0.0',
+    version: CURRENT_SAVE_VERSION,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     totalPlayTime: 0,

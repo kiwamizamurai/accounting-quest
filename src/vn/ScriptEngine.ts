@@ -8,7 +8,7 @@ import {
 } from './types';
 import { ConditionEvaluator } from './ConditionEvaluator';
 import { GameStateManager } from '../state/GameStateManager';
-import { AccountCategory } from '../models/Account';
+import { AccountCategory, isValidAccountCategory } from '../models/Account';
 import { BusinessEventType, createJournalEntry, TransactionLine } from '../models/Transaction';
 import { t } from '../i18n';
 
@@ -114,6 +114,7 @@ export class ScriptEngine {
     }
 
     this.vnState.currentNodeId = node.next;
+    this.executeCurrentNode();
     return isCorrect;
   }
 
@@ -132,6 +133,7 @@ export class ScriptEngine {
     }
 
     this.vnState.currentNodeId = node.next;
+    this.executeCurrentNode();
     return isCorrect;
   }
 
@@ -175,99 +177,103 @@ export class ScriptEngine {
   }
 
   private executeCurrentNode(): void {
-    const node = this.getCurrentNode();
-    if (!node || !this.callbacks) return;
+    // Use a loop instead of recursion for conditional/set_flag chains
+    // to prevent stack overflow on long chains
+    const MAX_ITERATIONS = 100;
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const node = this.getCurrentNode();
+      if (!node || !this.callbacks) return;
 
-    switch (node.type) {
-      case 'dialog': {
-        this.callbacks.onDialog(node.speaker, t(node.textKey, this.vnState.flags as Record<string, string | number>), node.expression);
-        break;
-      }
-      case 'choice': {
-        const prompt = t(node.promptKey);
-        const localizedChoices = node.choices.map(c => ({
-          ...c,
-          labelKey: c.labelKey,
-        }));
-        this.callbacks.onChoice(prompt, localizedChoices);
-        break;
-      }
-      case 'transaction': {
-        this.processTransactionEntries(node.entries);
-        this.callbacks.onTransaction(t(node.descriptionKey, this.vnState.flags as Record<string, string | number>), node.entries, node.showAnimation);
-        break;
-      }
-      case 'report': {
-        const msg = node.messageKey ? t(node.messageKey) : undefined;
-        this.callbacks.onReport(node.reportType, msg);
-        break;
-      }
-      case 'narration': {
-        this.callbacks.onNarration(t(node.textKey, this.vnState.flags as Record<string, string | number>));
-        break;
-      }
-      case 'character_enter': {
-        this.vnState.charactersOnScreen.set(node.character, node.position);
-        this.callbacks.onCharacterEnter(node.character, node.position, node.expression);
-        break;
-      }
-      case 'character_exit': {
-        this.vnState.charactersOnScreen.delete(node.character);
-        this.callbacks.onCharacterExit(node.character);
-        break;
-      }
-      case 'background': {
-        this.vnState.currentBackground = node.background;
-        this.callbacks.onBackgroundChange(node.background);
-        break;
-      }
-      case 'wait': {
-        this.callbacks.onWait(node.duration);
-        break;
-      }
-      case 'conditional': {
-        const result = this.conditionEvaluator.evaluate(node.condition, this.vnState);
-        this.vnState.currentNodeId = result ? node.trueNext : node.falseNext;
-        this.executeCurrentNode();
-        return;
-      }
-      case 'set_flag': {
-        Object.assign(this.vnState.flags, node.flags);
-        this.vnState.currentNodeId = node.next;
-        this.executeCurrentNode();
-        return;
-      }
-      case 'chapter_end': {
-        const summary = node.summaryKey ? t(node.summaryKey) : undefined;
-        this.gameState.completeChapter(this.vnState.currentChapter);
-        this.callbacks.onChapterEnd(node.nextChapter, summary);
-        break;
-      }
-      case 'quiz': {
-        const question = t(node.questionKey);
-        const options = node.options.map(o => t(o.labelKey));
-        const correctFeedback = t(node.correctFeedbackKey);
-        const incorrectFeedback = t(node.incorrectFeedbackKey);
-        this.callbacks.onQuiz(question, options, node.correctIndex, correctFeedback, incorrectFeedback);
-        break;
-      }
-      case 'journal_entry_input': {
-        const jePrompt = t(node.promptKey);
-        const correctFeedback = t(node.correctFeedbackKey);
-        const incorrectFeedback = t(node.incorrectFeedbackKey);
-        const hint = node.hintKey ? t(node.hintKey) : undefined;
-        this.callbacks.onJournalEntryInput(jePrompt, node.expectedEntries, correctFeedback, incorrectFeedback, hint);
-        break;
+      switch (node.type) {
+        case 'dialog': {
+          this.callbacks.onDialog(node.speaker, t(node.textKey, this.vnState.flags as Record<string, string | number>), node.expression);
+          return;
+        }
+        case 'choice': {
+          const prompt = t(node.promptKey);
+          const localizedChoices = node.choices.map(c => ({
+            ...c,
+            labelKey: c.labelKey,
+          }));
+          this.callbacks.onChoice(prompt, localizedChoices);
+          return;
+        }
+        case 'transaction': {
+          this.processTransactionEntries(node.entries, node.eventType);
+          this.callbacks.onTransaction(t(node.descriptionKey, this.vnState.flags as Record<string, string | number>), node.entries, node.showAnimation);
+          return;
+        }
+        case 'report': {
+          const msg = node.messageKey ? t(node.messageKey) : undefined;
+          this.callbacks.onReport(node.reportType, msg);
+          return;
+        }
+        case 'narration': {
+          this.callbacks.onNarration(t(node.textKey, this.vnState.flags as Record<string, string | number>));
+          return;
+        }
+        case 'character_enter': {
+          this.vnState.charactersOnScreen.set(node.character, node.position);
+          this.callbacks.onCharacterEnter(node.character, node.position, node.expression);
+          return;
+        }
+        case 'character_exit': {
+          this.vnState.charactersOnScreen.delete(node.character);
+          this.callbacks.onCharacterExit(node.character);
+          return;
+        }
+        case 'background': {
+          this.vnState.currentBackground = node.background;
+          this.callbacks.onBackgroundChange(node.background);
+          return;
+        }
+        case 'wait': {
+          this.callbacks.onWait(node.duration);
+          return;
+        }
+        case 'conditional': {
+          const result = this.conditionEvaluator.evaluate(node.condition, this.vnState);
+          this.vnState.currentNodeId = result ? node.trueNext : node.falseNext;
+          continue; // loop instead of recurse
+        }
+        case 'set_flag': {
+          Object.assign(this.vnState.flags, node.flags);
+          this.vnState.currentNodeId = node.next;
+          continue; // loop instead of recurse
+        }
+        case 'chapter_end': {
+          const summary = node.summaryKey ? t(node.summaryKey) : undefined;
+          this.gameState.completeChapter(this.vnState.currentChapter);
+          this.callbacks.onChapterEnd(node.nextChapter, summary);
+          return;
+        }
+        case 'quiz': {
+          const question = t(node.questionKey);
+          const options = node.options.map(o => t(o.labelKey));
+          const correctFeedback = t(node.correctFeedbackKey);
+          const incorrectFeedback = t(node.incorrectFeedbackKey);
+          this.callbacks.onQuiz(question, options, node.correctIndex, correctFeedback, incorrectFeedback);
+          return;
+        }
+        case 'journal_entry_input': {
+          const jePrompt = t(node.promptKey);
+          const correctFeedback = t(node.correctFeedbackKey);
+          const incorrectFeedback = t(node.incorrectFeedbackKey);
+          const hint = node.hintKey ? t(node.hintKey) : undefined;
+          this.callbacks.onJournalEntryInput(jePrompt, node.expectedEntries, correctFeedback, incorrectFeedback, hint);
+          return;
+        }
       }
     }
+
+    console.error(`ScriptEngine: exceeded ${MAX_ITERATIONS} iterations in conditional/set_flag chain at node ${this.vnState.currentNodeId}`);
   }
 
   private processTransactionDef(txDef: TransactionDef): void {
-    const lines: TransactionLine[] = txDef.entries.map(e => ({
-      accountCategory: e.account as AccountCategory,
-      debit: e.debit ?? 0,
-      credit: e.credit ?? 0,
-    }));
+    const lines = this.buildTransactionLines(txDef.entries);
+    if (!lines) return;
+
+    const eventType = this.resolveEventType(txDef.eventType);
 
     const entry = createJournalEntry(
       `VN-${++journalEntryCounter}-${Date.now()}`,
@@ -275,19 +281,21 @@ export class ScriptEngine {
       'VN Transaction',
       'VN取引',
       lines,
-      BusinessEventType.OWNER_INVESTMENT,
+      eventType,
       this.vnState.currentChapter
     );
 
-    this.gameState.processTransaction(entry);
+    const result = this.gameState.processTransaction(entry);
+    if (!result.success) {
+      console.error(`ScriptEngine: Transaction failed in chapter ${this.vnState.currentChapter} at node ${this.vnState.currentNodeId}: ${result.error}`);
+    }
   }
 
-  private processTransactionEntries(entries: { account: string; debit?: number; credit?: number }[]): void {
-    const lines: TransactionLine[] = entries.map(e => ({
-      accountCategory: e.account as AccountCategory,
-      debit: e.debit ?? 0,
-      credit: e.credit ?? 0,
-    }));
+  private processTransactionEntries(entries: { account: string; debit?: number; credit?: number }[], eventType?: string): void {
+    const lines = this.buildTransactionLines(entries);
+    if (!lines) return;
+
+    const resolvedEventType = this.resolveEventType(eventType);
 
     const entry = createJournalEntry(
       `VN-${++journalEntryCounter}-${Date.now()}`,
@@ -295,11 +303,36 @@ export class ScriptEngine {
       'VN Transaction',
       'VN取引',
       lines,
-      BusinessEventType.OWNER_INVESTMENT,
+      resolvedEventType,
       this.vnState.currentChapter
     );
 
-    this.gameState.processTransaction(entry);
+    const result = this.gameState.processTransaction(entry);
+    if (!result.success) {
+      console.error(`ScriptEngine: Transaction failed in chapter ${this.vnState.currentChapter} at node ${this.vnState.currentNodeId}: ${result.error}`);
+    }
+  }
+
+  private buildTransactionLines(entries: { account: string; debit?: number; credit?: number }[]): TransactionLine[] | null {
+    for (const e of entries) {
+      if (!isValidAccountCategory(e.account)) {
+        console.error(`ScriptEngine: Invalid AccountCategory "${e.account}" in chapter ${this.vnState.currentChapter} at node ${this.vnState.currentNodeId}`);
+        return null;
+      }
+    }
+
+    return entries.map(e => ({
+      accountCategory: e.account as AccountCategory,
+      debit: e.debit ?? 0,
+      credit: e.credit ?? 0,
+    }));
+  }
+
+  private resolveEventType(eventType?: string): BusinessEventType {
+    if (eventType && Object.values(BusinessEventType).includes(eventType as BusinessEventType)) {
+      return eventType as BusinessEventType;
+    }
+    return BusinessEventType.VN_SCRIPT_TRANSACTION;
   }
 
   getNodeById(id: string): ScriptNode | undefined {

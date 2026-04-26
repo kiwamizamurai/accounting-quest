@@ -1391,7 +1391,6 @@
   "ch209.loan_borrowing_tx.desc": "Bank loan borrowing (5,000G)",
   "ch209.loan_borrowing_done": "We borrowed 5,000G. Checking Account (asset) increased and Loans Payable (liability) increased. This is a cash inflow from financing activities.",
   "ch209.loan_repayment_tx.desc": "Repay bank loan (3,000G)",
-  "ch209.dividend_payment_tx.desc": "Pay dividends (1,000G)",
   "ch209.dialog_after_financing": "Loan repayment of 3,000G and dividend payment of 1,000G are both financing cash outflows. Total financing outflow: 4,000G.",
   "ch209.show_cf_report.msg": "Cash Flow Statement: Operating +4,000, Investing -5,000, Financing -4,000. Net change: -5,000G.",
   "ch209.dialog_cf_analysis": "Even though we had a net cash decrease, the positive operating cash flow is a good sign. The outflows were for investment (growth) and debt reduction (strengthening).",

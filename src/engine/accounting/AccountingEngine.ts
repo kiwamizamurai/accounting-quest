@@ -53,16 +53,20 @@ export class AccountingEngine {
       };
     }
 
-    // Apply the entry to accounts
+    // Validate all accounts exist before applying any changes
     for (const line of entry.lines) {
-      const account = this.accounts.get(line.accountCategory);
-      if (!account) {
+      if (!this.accounts.get(line.accountCategory)) {
         return {
           success: false,
           error: `Account not found: ${line.accountCategory}`,
           entry: null,
         };
       }
+    }
+
+    // Apply the entry to accounts (all accounts verified above)
+    for (const line of entry.lines) {
+      const account = this.accounts.get(line.accountCategory)!;
 
       // Update balance based on debit/credit and normal balance
       if (isDebitIncrease(account.type)) {
