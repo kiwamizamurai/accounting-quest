@@ -149,6 +149,12 @@ export class AccountingEngine {
     // Add net income to equity
     const incomeStatement = this.getIncomeStatement();
     totalEquity += incomeStatement.netIncome;
+    equity.push({
+      category: AccountCategory.RETAINED_EARNINGS,
+      name: 'Net Income (Current Period)',
+      nameJa: '当期純利益',
+      balance: incomeStatement.netIncome,
+    });
 
     return {
       assets,

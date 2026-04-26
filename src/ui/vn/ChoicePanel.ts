@@ -31,6 +31,12 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
 
   show(prompt: string, choices: ChoiceOption[], onSelect: (index: number) => void): void {
     this.clearChoices();
+    // Remove previous keyboard listeners before adding new ones
+    this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
+    this.scene.input.keyboard?.off('keydown-DOWN', this.navigateDown, this);
+    this.scene.input.keyboard?.off('keydown-ENTER', this.confirmSelection, this);
+    this.scene.input.keyboard?.off('keydown-SPACE', this.confirmSelection, this);
+
     this.promptText.setText(prompt);
     this.onSelect = onSelect;
     this.selectedIndex = 0;
@@ -38,8 +44,10 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     const startY = GAME_HEIGHT - 180;
     const choiceHeight = 48;
     const choiceWidth = 400;
+    const maxVisibleChoices = Math.floor((GAME_HEIGHT - startY) / (choiceHeight + 12));
+    const visibleChoices = choices.slice(0, maxVisibleChoices);
 
-    choices.forEach((choice, index) => {
+    visibleChoices.forEach((choice, index) => {
       const y = startY + index * (choiceHeight + 12);
       const container = this.createChoiceButton(
         GAME_WIDTH / 2,

@@ -298,6 +298,24 @@ export class GameStateManager {
       throw new Error('Invalid save data: journalEntries must be an array');
     }
 
+    // Validate individual account entries
+    for (const entry of data.accounts) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new Error('Invalid save data: malformed account entry');
+      }
+      const [, account] = entry;
+      if (!account || typeof account.name !== 'string' || typeof account.balance !== 'number') {
+        throw new Error('Invalid save data: account missing required fields (name, balance)');
+      }
+    }
+
+    // Validate individual journal entries
+    for (const je of data.journalEntries) {
+      if (!je || typeof je.id !== 'string' || !Array.isArray(je.lines)) {
+        throw new Error('Invalid save data: journal entry missing required fields (id, lines)');
+      }
+    }
+
     const manager = new GameStateManager(data.player.name);
     manager.state = {
       ...data,

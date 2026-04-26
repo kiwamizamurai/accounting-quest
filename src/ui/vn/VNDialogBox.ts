@@ -18,6 +18,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   private onAdvance?: () => void;
   private inputLocked = false;
   private inputBlocked = false;
+  private blinkTween?: Phaser.Tweens.Tween;
 
   private boxWidth: number;
   private boxHeight = 160;
@@ -83,7 +84,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.continueIndicator.setVisible(false);
     this.add(this.continueIndicator);
 
-    scene.tweens.add({
+    this.blinkTween = scene.tweens.add({
       targets: this.continueIndicator,
       alpha: 0.3,
       duration: 500,
@@ -138,6 +139,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   }
 
   showDialog(speaker: string, text: string, onAdvance?: () => void): void {
+    this.stopTyping();
     const speakerName = getCharacterName(speaker);
     const speakerColor = this.getSpeakerColor(speaker);
 
@@ -151,6 +153,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.inputLocked = false;
 
     this.dialogText.setText('');
+    this.dialogText.setColor('#ffffff');
     this.continueIndicator.setVisible(false);
     this.setVisible(true);
 
@@ -166,6 +169,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   }
 
   showNarration(text: string, onAdvance?: () => void): void {
+    this.stopTyping();
     this.speakerText.setText('');
     this.speakerBg.clear();
 
@@ -290,6 +294,10 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
       this.disableInput();
     }
     this.stopTyping();
+    if (this.blinkTween) {
+      this.blinkTween.stop();
+      this.blinkTween = undefined;
+    }
     super.destroy();
   }
 }

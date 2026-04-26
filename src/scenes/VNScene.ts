@@ -66,6 +66,7 @@ export class VNScene extends Phaser.Scene {
   private settingsButton!: Phaser.GameObjects.Text;
   private langButton!: Phaser.GameObjects.Text;
   private autoSaveTimer?: Phaser.Time.TimerEvent;
+  private settingsPanelElements: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('VNScene');
@@ -505,7 +506,13 @@ export class VNScene extends Phaser.Scene {
       repeat: -1,
     });
 
+    let advanced = false;
     const advance = () => {
+      if (advanced) return;
+      advanced = true;
+      this.input.keyboard?.off('keydown-SPACE', advance);
+      this.input.keyboard?.off('keydown-ENTER', advance);
+      this.input.off('pointerdown', advance);
       overlay.destroy();
       summaryTitle.destroy();
       summaryText.destroy();
@@ -518,8 +525,8 @@ export class VNScene extends Phaser.Scene {
       }
     };
 
-    this.input.keyboard?.once('keydown-SPACE', advance);
-    this.input.keyboard?.once('keydown-ENTER', advance);
+    this.input.keyboard?.on('keydown-SPACE', advance);
+    this.input.keyboard?.on('keydown-ENTER', advance);
     this.input.once('pointerdown', advance);
   }
 
@@ -719,30 +726,36 @@ export class VNScene extends Phaser.Scene {
       height: 36,
       text: lang === 'ja' ? '閉じる' : 'Close',
       onClick: () => {
-        this.dialogBox.unblockInput();
-        overlay.destroy();
-        bg.destroy();
-        bgmToggleBtn.destroy();
-        bgmLabel.destroy();
-        musicLabel.destroy();
-        musicSliderBg.destroy();
-        musicSliderFill.destroy();
-        musicSliderArea.destroy();
-        sfxLabel.destroy();
-        sfxSliderBg.destroy();
-        sfxSliderFill.destroy();
-        sfxSliderArea.destroy();
-        titleText.destroy();
-        closeBtn.destroy();
+        this.destroySettingsPanel();
       },
     });
     closeBtn.setDepth(DEPTH.TRANSITION);
+
+    this.settingsPanelElements = [
+      overlay, bg, bgmToggleBtn, bgmLabel, musicLabel,
+      musicSliderBg, musicSliderFill, musicSliderArea,
+      sfxLabel, sfxSliderBg, sfxSliderFill, sfxSliderArea,
+      titleText, closeBtn,
+    ];
+  }
+
+  private destroySettingsPanel(): void {
+    this.dialogBox.unblockInput();
+    for (const el of this.settingsPanelElements) {
+      if (el && el.active) {
+        el.destroy();
+      }
+    }
+    this.settingsPanelElements = [];
   }
 
   shutdown(): void {
     // Stop BGM when scene shuts down
     const audioManager = getAudioManager();
     audioManager.stopBGM();
+
+    // Clean up settings panel if open
+    this.destroySettingsPanel();
 
     if (this.autoSaveTimer) {
       this.autoSaveTimer.destroy();

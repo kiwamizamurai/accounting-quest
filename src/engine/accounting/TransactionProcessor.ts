@@ -14,8 +14,8 @@ function generateEntryId(): string {
 }
 
 function validateAmount(amount: number, label: string): void {
-  if (amount < 0) {
-    throw new Error(`TransactionProcessor: ${label} must not be negative (got ${amount})`);
+  if (amount <= 0) {
+    throw new Error(`TransactionProcessor: ${label} must be positive (got ${amount})`);
   }
 }
 
@@ -201,6 +201,7 @@ export class TransactionProcessor {
    * Debit: Inventory | Credit: Accounts Payable
    */
   createCreditPurchase(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.INVENTORY, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCOUNTS_PAYABLE, debit: 0, credit: amount },
@@ -222,6 +223,7 @@ export class TransactionProcessor {
    * Debit: Accounts Payable | Credit: Cash
    */
   createPayAccountsPayable(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.ACCOUNTS_PAYABLE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CASH, debit: 0, credit: amount },
@@ -247,6 +249,8 @@ export class TransactionProcessor {
     costAmount: number,
     date: GameDate
   ): JournalEntry[] {
+    validateAmount(saleAmount, 'saleAmount');
+    validateAmount(costAmount, 'costAmount');
     const saleEntry = createJournalEntry(
       generateEntryId(),
       date,
@@ -281,6 +285,7 @@ export class TransactionProcessor {
    * Debit: Cash | Credit: Accounts Receivable
    */
   createCollectReceivable(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CASH, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount },
@@ -302,6 +307,7 @@ export class TransactionProcessor {
    * Debit: Bad Debt Expense | Credit: Accounts Receivable
    */
   createBadDebtWriteOff(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.BAD_DEBT_EXPENSE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCOUNTS_RECEIVABLE, debit: 0, credit: amount },
@@ -323,6 +329,7 @@ export class TransactionProcessor {
    * Debit: Equipment | Credit: Cash
    */
   createEquipmentPurchase(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.EQUIPMENT, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CASH, debit: 0, credit: amount },
@@ -344,6 +351,7 @@ export class TransactionProcessor {
    * Debit: Depreciation Expense | Credit: Accumulated Depreciation
    */
   createDepreciation(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.DEPRECIATION_EXPENSE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCUMULATED_DEPRECIATION, debit: 0, credit: amount },
@@ -367,6 +375,7 @@ export class TransactionProcessor {
    * Debit: Savings Account | Credit: Owner's Capital
    */
   createIncorporation(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.SAVINGS_ACCOUNT, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.OWNERS_CAPITAL, debit: 0, credit: amount },
@@ -388,6 +397,7 @@ export class TransactionProcessor {
    * Debit: Checking Account | Credit: Savings Account
    */
   createOpenBankAccount(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.SAVINGS_ACCOUNT, debit: 0, credit: amount },
@@ -409,6 +419,7 @@ export class TransactionProcessor {
    * Debit: Security Deposits | Credit: Checking Account
    */
   createPaySecurityDeposit(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.SECURITY_DEPOSITS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -430,6 +441,7 @@ export class TransactionProcessor {
    * Debit: Buildings | Credit: Checking Account
    */
   createPurchaseBuilding(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.BUILDINGS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -451,6 +463,7 @@ export class TransactionProcessor {
    * Debit: Vehicles | Credit: Checking Account
    */
   createPurchaseVehicle(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.VEHICLES, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -472,6 +485,7 @@ export class TransactionProcessor {
    * Debit: Inventory | Credit: Electronically Recorded Payable
    */
   createElectronicPurchase(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.INVENTORY, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ELECTRONICALLY_RECORDED_PAYABLE, debit: 0, credit: amount },
@@ -498,6 +512,8 @@ export class TransactionProcessor {
     taxAmount: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(purchaseAmount, 'purchaseAmount');
+    validateAmount(taxAmount, 'taxAmount');
     const total = purchaseAmount + taxAmount;
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.INVENTORY, debit: purchaseAmount, credit: 0 },
@@ -526,6 +542,8 @@ export class TransactionProcessor {
     taxAmount: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(saleAmount, 'saleAmount');
+    validateAmount(taxAmount, 'taxAmount');
     const total = saleAmount + taxAmount;
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: total, credit: 0 },
@@ -555,6 +573,8 @@ export class TransactionProcessor {
     payable: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(receivable, 'receivable');
+    validateAmount(payable, 'payable');
     const difference = payable - receivable;
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.CONSUMPTION_TAX_PAYABLE, debit: payable, credit: 0 },
@@ -619,6 +639,7 @@ export class TransactionProcessor {
    * Debit: Statutory Welfare Expense | Credit: Checking Account
    */
   createPayStatutoryWelfare(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.STATUTORY_WELFARE_EXPENSE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -640,6 +661,7 @@ export class TransactionProcessor {
    * Debit: Petty Cash | Credit: Checking Account
    */
   createPettyCashFund(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.PETTY_CASH, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -751,6 +773,7 @@ export class TransactionProcessor {
    * Debit: Allowance for Doubtful Accounts Expense | Credit: Allowance for Doubtful Accounts
    */
   createRecordAllowanceForDA(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS, debit: 0, credit: amount },
@@ -777,6 +800,7 @@ export class TransactionProcessor {
     date: GameDate,
     description: string
   ): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: expenseCategory, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCRUED_EXPENSES, debit: 0, credit: amount },
@@ -803,6 +827,7 @@ export class TransactionProcessor {
     date: GameDate,
     description: string
   ): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.ACCRUED_REVENUE, debit: amount, credit: 0 },
       { accountCategory: revenueCategory, debit: 0, credit: amount },
@@ -888,6 +913,7 @@ export class TransactionProcessor {
    * Debit: Tax Expense | Credit: Accrued Corporate Tax
    */
   createRecordCorporateTax(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.TAX_EXPENSE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.ACCRUED_CORPORATE_TAX, debit: 0, credit: amount },
@@ -911,6 +937,7 @@ export class TransactionProcessor {
    * Debit: Raw Materials | Credit: Checking Account
    */
   createPurchaseRawMaterials(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.RAW_MATERIALS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -932,6 +959,7 @@ export class TransactionProcessor {
    * Debit: Work in Process | Credit: Raw Materials
    */
   createIssueMaterialsToProduction(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.WORK_IN_PROCESS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.RAW_MATERIALS, debit: 0, credit: amount },
@@ -953,6 +981,7 @@ export class TransactionProcessor {
    * Debit: Work in Process | Credit: Checking Account
    */
   createRecordDirectLabor(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.WORK_IN_PROCESS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -974,6 +1003,7 @@ export class TransactionProcessor {
    * Debit: Manufacturing Overhead | Credit: Checking Account
    */
   createRecordManufacturingOverhead(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.MANUFACTURING_OVERHEAD, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -995,6 +1025,7 @@ export class TransactionProcessor {
    * Debit: Work in Process | Credit: Manufacturing Overhead
    */
   createAllocateOverhead(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.WORK_IN_PROCESS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.MANUFACTURING_OVERHEAD, debit: 0, credit: amount },
@@ -1016,6 +1047,7 @@ export class TransactionProcessor {
    * Debit: Finished Goods | Credit: Work in Process
    */
   createCompleteProduction(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.FINISHED_GOODS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.WORK_IN_PROCESS, debit: 0, credit: amount },
@@ -1037,6 +1069,7 @@ export class TransactionProcessor {
    * Debit: Trading Securities | Credit: Checking Account
    */
   createPurchaseTradingSecurities(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.TRADING_SECURITIES, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -1063,6 +1096,8 @@ export class TransactionProcessor {
     salePrice: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(bookValue, 'bookValue');
+    validateAmount(salePrice, 'salePrice');
     const lines: TransactionLine[] = [];
 
     if (salePrice >= bookValue) {
@@ -1100,6 +1135,8 @@ export class TransactionProcessor {
     fairValue: number,
     date: GameDate
   ): JournalEntry {
+    validateAmount(bookValue, 'bookValue');
+    validateAmount(fairValue, 'fairValue');
     const lines: TransactionLine[] = [];
 
     if (fairValue >= bookValue) {
@@ -1128,6 +1165,7 @@ export class TransactionProcessor {
    * Debit: Subsidiary Securities | Credit: Checking Account
    */
   createAcquireSubsidiary(amount: number, _netAssets: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.SUBSIDIARY_SECURITIES, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
@@ -1149,6 +1187,7 @@ export class TransactionProcessor {
    * Debit: Goodwill Amortization | Credit: Goodwill
    */
   createAmortizeGoodwill(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.GOODWILL_AMORTIZATION, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.GOODWILL, debit: 0, credit: amount },
@@ -1170,6 +1209,7 @@ export class TransactionProcessor {
    * Debit: Retained Earnings | Credit: Dividends Payable
    */
   createDeclareDividend(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.RETAINED_EARNINGS, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.DIVIDENDS_PAYABLE, debit: 0, credit: amount },
@@ -1191,6 +1231,7 @@ export class TransactionProcessor {
    * Debit: Dividends Payable | Credit: Checking Account
    */
   createPayDividend(amount: number, date: GameDate): JournalEntry {
+    validateAmount(amount, 'amount');
     const lines: TransactionLine[] = [
       { accountCategory: AccountCategory.DIVIDENDS_PAYABLE, debit: amount, credit: 0 },
       { accountCategory: AccountCategory.CHECKING_ACCOUNT, debit: 0, credit: amount },
