@@ -33,12 +33,10 @@ export class AudioManager {
 
   /**
    * Initialize audio manager with a Phaser scene
-   * Must be called before playing any audio
+   * Must be called before playing any audio.
+   * Always updates the scene reference so that a new scene instance can be used.
    */
   init(scene: Phaser.Scene): void {
-    if (this.isInitialized) {
-      return;
-    }
     this.scene = scene;
     this.isInitialized = true;
   }
@@ -133,6 +131,15 @@ export class AudioManager {
       sfx.play();
     } catch (err) {
       console.warn(`Failed to play SFX (${effectName}):`, err);
+    }
+  }
+
+  /**
+   * Update the volume of the currently playing BGM
+   */
+  setMusicVolume(volume: number): void {
+    if (this.currentBgm && this.currentBgm.isPlaying) {
+      (this.currentBgm as Phaser.Sound.WebAudioSound).setVolume(volume);
     }
   }
 

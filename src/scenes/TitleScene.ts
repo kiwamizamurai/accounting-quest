@@ -324,7 +324,8 @@ export class TitleScene extends Phaser.Scene {
       text: settings.bgmEnabled ? 'ON' : 'OFF',
       fontSize: 13,
       onClick: () => {
-        const newValue = !settings.bgmEnabled;
+        const currentSettings = gameState.getState().settings;
+        const newValue = !currentSettings.bgmEnabled;
         gameState.updateSettings({ bgmEnabled: newValue });
 
         const audioManager = getAudioManager();
@@ -373,6 +374,7 @@ export class TitleScene extends Phaser.Scene {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ musicVolume: newVolume });
+      getAudioManager().setMusicVolume(newVolume);
       musicSliderFill.clear();
       musicSliderFill.fillStyle(COLORS.ASSETS, 1);
       musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * newVolume, 8);
