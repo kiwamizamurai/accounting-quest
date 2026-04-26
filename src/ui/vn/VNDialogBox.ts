@@ -17,6 +17,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   private typingTimer: Phaser.Time.TimerEvent | null = null;
   private onAdvance?: () => void;
   private inputLocked = false;
+  private inputBlocked = false;
 
   private boxWidth: number;
   private boxHeight = 160;
@@ -197,12 +198,12 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.dialogText.setColor('#ffffff');
   }
 
-  lockInput(): void {
-    this.inputLocked = true;
+  blockInput(): void {
+    this.inputBlocked = true;
   }
 
-  unlockInput(): void {
-    this.inputLocked = false;
+  unblockInput(): void {
+    this.inputBlocked = false;
   }
 
   private typeNextChar = (): void => {
@@ -232,7 +233,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   }
 
   private handleInput = (): void => {
-    if (!this.visible || this.inputLocked) return;
+    if (!this.visible || this.inputLocked || this.inputBlocked) return;
 
     if (this.isTyping) {
       this.stopTyping();
@@ -246,17 +247,25 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     }
   };
 
+  private handlePointerInput = (
+    _pointer: Phaser.Input.Pointer,
+    currentlyOver: Phaser.GameObjects.GameObject[]
+  ): void => {
+    if (currentlyOver && currentlyOver.length > 0) return;
+    this.handleInput();
+  };
+
   private enableInput(): void {
     this.disableInput();
     this.scene.input.keyboard?.on('keydown-SPACE', this.handleInput, this);
     this.scene.input.keyboard?.on('keydown-ENTER', this.handleInput, this);
-    this.scene.input.on('pointerdown', this.handleInput, this);
+    this.scene.input.on('pointerdown', this.handlePointerInput, this);
   }
 
   private disableInput(): void {
     this.scene.input.keyboard?.off('keydown-SPACE', this.handleInput, this);
     this.scene.input.keyboard?.off('keydown-ENTER', this.handleInput, this);
-    this.scene.input.off('pointerdown', this.handleInput, this);
+    this.scene.input.off('pointerdown', this.handlePointerInput, this);
   }
 
   private getSpeakerColor(speaker: string): number {
