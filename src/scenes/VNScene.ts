@@ -663,6 +663,7 @@ export class VNScene extends Phaser.Scene {
       const localX = pointer.x - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ musicVolume: newVolume });
+      getAudioManager().setMusicVolume(newVolume);
       musicSliderFill.clear();
       musicSliderFill.fillStyle(COLORS.ASSETS, 1);
       musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * newVolume, 8);
