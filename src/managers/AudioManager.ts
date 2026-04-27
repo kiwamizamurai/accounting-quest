@@ -48,14 +48,14 @@ export class AudioManager {
     // BGM - Load all level-specific background music
     for (const [, key] of Object.entries(this.bgmKeys)) {
       if (!scene.sys.game.cache.audio.has(key)) {
-        scene.load.audio(key, `/audio/${key}.mp3`);
+        scene.load.audio(key, `${import.meta.env.BASE_URL}audio/${key}.mp3`);
       }
     }
 
     // SFX - Load sound effects
     for (const [, key] of Object.entries(this.sfxKeys)) {
       if (!scene.sys.game.cache.audio.has(key)) {
-        scene.load.audio(key, `/audio/${key}.mp3`);
+        scene.load.audio(key, `${import.meta.env.BASE_URL}audio/${key}.mp3`);
       }
     }
   }
