@@ -39,4 +39,10 @@ class AccountingGame extends Phaser.Game {
 
 window.addEventListener('load', () => {
   new AccountingGame();
+
+  // Load test bridge in development mode for E2E testing
+  // @ts-expect-error Vite injects import.meta.env at build time
+  if (import.meta.env?.DEV) {
+    import('./test-bridge');
+  }
 });
