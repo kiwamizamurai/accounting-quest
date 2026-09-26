@@ -121,8 +121,8 @@ export class VNScene extends Phaser.Scene {
     });
     this.chapterLabel.setDepth(DEPTH.UI_TEXT);
 
-    // Settings button (top-right, above language toggle)
-    this.settingsButton = this.add.text(GAME_WIDTH - 80, 56, '⚙', {
+    // Settings button (top row, left of the PL/BS toggles so it never overlaps the report panels)
+    this.settingsButton = this.add.text(GAME_WIDTH - 224, 17, '⚙', {
       fontFamily: '"Courier New", monospace',
       fontSize: '16px',
       color: '#ffffff',
@@ -136,8 +136,8 @@ export class VNScene extends Phaser.Scene {
       this.showSettingsPanel();
     });
 
-    // Language toggle (top-right, below scorecard toggle)
-    this.langButton = this.add.text(GAME_WIDTH - 30, 56, lang === 'ja' ? 'EN' : 'JA', {
+    // Language toggle (top row, between the settings button and the PL/BS toggles)
+    this.langButton = this.add.text(GAME_WIDTH - 190, 20, lang === 'ja' ? 'EN' : 'JA', {
       fontFamily: '"Courier New", monospace',
       fontSize: '12px',
       color: '#ffffff',
@@ -166,6 +166,13 @@ export class VNScene extends Phaser.Scene {
     // Set up script engine callbacks
     this.setupCallbacks();
 
+    // Remember which chapter is being played, and checkpoint the state before any of its entries
+    // are posted. Saves always store this chapter-start snapshot, so "Continue" replays the chapter
+    // from the top without double-posting the entries it had already recorded.
+    gameState.setCurrentChapter(chapterId);
+    const chapterStartState = gameState.toJSON();
+    SaveLoadManager.autoSave(gameState, chapterStartState);
+
     // Start the chapter
     this.scriptEngine.startChapter(chapterId);
 
@@ -173,7 +180,7 @@ export class VNScene extends Phaser.Scene {
     this.autoSaveTimer = this.time.addEvent({
       delay: 60000,
       callback: () => {
-        SaveLoadManager.autoSave(gameState);
+        SaveLoadManager.autoSave(gameState, chapterStartState);
       },
       loop: true,
     });
@@ -183,7 +190,7 @@ export class VNScene extends Phaser.Scene {
 
     // Keyboard: S to save
     this.input.keyboard?.on('keydown-S', () => {
-      SaveLoadManager.autoSave(gameState);
+      SaveLoadManager.autoSave(gameState, chapterStartState);
       this.showNotification(getLanguage() === 'ja' ? 'セーブしました' : 'Game Saved');
     });
   }
@@ -446,6 +453,14 @@ export class VNScene extends Phaser.Scene {
 
   private showChapterSummary(summary: string, nextChapter?: number): void {
     const lang = getLanguage();
+
+    // Fold the BS/PL panels away so they do not show through the overlay behind the summary text
+    if (this.scorecard.bsExpanded) {
+      this.scorecard.toggle();
+    }
+    if (this.scorecard.plExpanded) {
+      this.scorecard.togglePl();
+    }
 
     // Overlay
     const overlay = this.add.graphics();

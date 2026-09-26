@@ -1,22 +1,32 @@
+import { getLanguage } from '../i18n';
+
+/**
+ * Currency unit shown after amounts: 円 in Japanese (matches the story text), G in English
+ */
+function currencyUnit(): string {
+  return getLanguage() === 'ja' ? '円' : 'G';
+}
+
 /**
  * Format a number as currency
  */
 export function formatMoney(amount: number, showSign: boolean = false): string {
   const formatted = new Intl.NumberFormat('ja-JP').format(Math.abs(amount));
+  const unit = currencyUnit();
 
   if (showSign) {
     if (amount > 0) {
-      return `+${formatted}G`;
+      return `+${formatted}${unit}`;
     } else if (amount < 0) {
-      return `-${formatted}G`;
+      return `-${formatted}${unit}`;
     }
   }
 
   if (amount < 0) {
-    return `-${formatted}G`;
+    return `-${formatted}${unit}`;
   }
 
-  return `${formatted}G`;
+  return `${formatted}${unit}`;
 }
 
 /**
@@ -30,7 +40,7 @@ export function formatNumber(num: number): string {
  * Parse a money string back to number
  */
 export function parseMoney(str: string): number {
-  const cleaned = str.replace(/[G,\s+]/g, '');
+  const cleaned = str.replace(/[G円,\s+]/g, '');
   return parseInt(cleaned, 10) || 0;
 }
 
