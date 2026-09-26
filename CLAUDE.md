@@ -79,7 +79,7 @@ Default language is Japanese (`ja`). Chapter dialog keys follow the pattern `ch1
 
 Key config files:
 - `src/config/game.config.ts` – Phaser game options (physics, input, scale mode)
-- `src/config/layout.ts` – Portrait layout: the canvas is `VIEW_WIDTH` (360) logical px wide and its height follows the window shape (`getViewHeight()`); `getVNLayout()` gives the regions of the VN screen (top bar, stage, dialog, equation strip). Every scene calls `fitViewToWindow()` first, then `applyRenderScale()`, and lays itself out from these values instead of hard-coded pixels. Scene art (backgrounds, characters) is still drawn in an 800x600 space and scaled into the stage
+- `src/config/layout.ts` – Portrait layout: the canvas is `VIEW_WIDTH` (360) logical px wide and its height follows the window shape (`getViewHeight()`); `getVNLayout()` gives the regions of the VN screen (top bar, stage, dialog). Every scene calls `fitViewToWindow()` first, then `applyRenderScale()`, and lays itself out from these values instead of hard-coded pixels. Scene art (backgrounds, characters) is still drawn in an 800x600 space and scaled into the stage
 - `src/config/chapters.config.ts` – Chapter metadata registry (titles, levels, unlock order)
 - `src/config/constants.ts` – Game-wide constants (animation durations, UI positions, etc.)
 

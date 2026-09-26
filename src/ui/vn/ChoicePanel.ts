@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DEPTH, FONT_FAMILY } from '../../config/constants';
-import { VIEW_WIDTH, HUD_HEIGHT, getVNLayout } from '../../config/layout';
+import { VIEW_WIDTH, HUD_HEIGHT, DIALOG_MARGIN, getViewHeight } from '../../config/layout';
 import { ChoiceOption } from '../../vn/types';
 import { t } from '../../i18n';
 
@@ -85,10 +85,9 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   }
 
   private build(prompt: string, labels: string[]): void {
-    const { strip } = getVNLayout();
     const width = VIEW_WIDTH - PANEL_MARGIN * 2;
     const inner = width - PANEL_PADDING * 2;
-    const bottom = strip.y - 6;
+    const bottom = getViewHeight() - DIALOG_MARGIN;
 
     this.promptText.setWordWrapWidth(inner, true);
     this.promptText.setText(prompt);

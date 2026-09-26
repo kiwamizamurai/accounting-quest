@@ -31,7 +31,7 @@ import { GameDate } from '../src/models/Transaction';
 import { GameStateManager } from '../src/state/GameStateManager';
 import { SaveLoadManager } from '../src/state/SaveLoadManager';
 import { setLanguage } from '../src/i18n';
-import { formatMoney } from '../src/utils/MoneyFormatter';
+import { formatMoney, formatAmount } from '../src/utils/MoneyFormatter';
 
 const testDate: GameDate = { year: 1, month: 1, day: 1 };
 
@@ -150,6 +150,18 @@ describe('formatMoney', () => {
     setLanguage('en');
     expect(formatMoney(1500)).toBe('1,500G');
     expect(formatMoney(-50)).toBe('-50G');
+
+    setLanguage('ja');
+  });
+
+  it('writes a table amount without a unit, and a negative one as a triangle in Japanese', () => {
+    setLanguage('ja');
+    expect(formatAmount(12120)).toBe('12,120');
+    expect(formatAmount(0)).toBe('0');
+    expect(formatAmount(-250)).toBe('△250');
+
+    setLanguage('en');
+    expect(formatAmount(-250)).toBe('-250');
 
     setLanguage('ja');
   });

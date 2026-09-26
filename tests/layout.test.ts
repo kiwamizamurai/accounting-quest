@@ -5,6 +5,7 @@ import {
   VIEW_MAX_HEIGHT,
   HUD_HEIGHT,
   DIALOG_TAG_HEIGHT,
+  DIALOG_MARGIN,
   computeViewHeight,
   getVNLayout,
   getSheetRect,
@@ -27,16 +28,16 @@ describe('portrait layout', () => {
   });
 
   it.each([VIEW_MIN_HEIGHT, 700, 779, VIEW_MAX_HEIGHT])('lays the visual novel screen out without overlaps at height %i', height => {
-    const { hud, stage, dialog, strip } = getVNLayout(false, height);
+    const { hud, stage, dialog } = getVNLayout(false, height);
 
-    // Top to bottom: HUD, stage, (speaker tag), dialog box, strip; the strip ends at the bottom edge
+    // Top to bottom: HUD, stage, (speaker tag), dialog box; the dialog box ends just above the bottom edge
     expect(hud.y + hud.h).toBeLessThanOrEqual(stage.y);
     expect(stage.y + stage.h + DIALOG_TAG_HEIGHT).toBeLessThanOrEqual(dialog.y);
-    expect(dialog.y + dialog.h).toBeLessThanOrEqual(strip.y);
-    expect(strip.y + strip.h).toBe(height);
+    expect(dialog.y + dialog.h).toBeLessThanOrEqual(height);
+    expect(height - (dialog.y + dialog.h)).toBe(DIALOG_MARGIN);
 
     // Everything fits the width, and the stage is tall enough for the scene art to read
-    for (const rect of [hud, stage, dialog, strip]) {
+    for (const rect of [hud, stage, dialog]) {
       expect(rect.x + rect.w).toBeLessThanOrEqual(VIEW_WIDTH);
     }
     expect(stage.h).toBeGreaterThanOrEqual(300);

@@ -59,7 +59,6 @@ export interface Rect {
 }
 
 export const HUD_HEIGHT = 48;
-export const STRIP_HEIGHT = 40;
 export const DIALOG_MARGIN = 10;
 export const DIALOG_TAG_HEIGHT = 22; // speaker name tag sitting on top of the dialog box
 
@@ -73,8 +72,6 @@ export interface VNLayout {
   stage: Rect;
   /** Dialog box, and the area choices / quiz answers use. Its speaker tag sits above `dialog.y`. */
   dialog: Rect;
-  /** Accounting-equation strip at the bottom. */
-  strip: Rect;
 }
 
 /** Dialog box height at full size: about a quarter of the screen (the longest lines still fit; long text shrinks). */
@@ -87,7 +84,7 @@ function fullDialogHeight(viewHeight: number): number {
  * open); `height` defaults to the current canvas height.
  */
 export function getVNLayout(compact = false, height = getViewHeight()): VNLayout {
-  const fullTop = height - STRIP_HEIGHT - DIALOG_MARGIN - fullDialogHeight(height);
+  const fullTop = height - DIALOG_MARGIN - fullDialogHeight(height);
   const dialogHeight = compact ? DIALOG_COMPACT_HEIGHT : fullDialogHeight(height);
   const stageBottom = fullTop - DIALOG_TAG_HEIGHT;
   return {
@@ -95,11 +92,10 @@ export function getVNLayout(compact = false, height = getViewHeight()): VNLayout
     stage: { x: 0, y: HUD_HEIGHT, w: VIEW_WIDTH, h: stageBottom - HUD_HEIGHT },
     dialog: {
       x: DIALOG_MARGIN,
-      y: height - STRIP_HEIGHT - DIALOG_MARGIN - dialogHeight,
+      y: height - DIALOG_MARGIN - dialogHeight,
       w: VIEW_WIDTH - DIALOG_MARGIN * 2,
       h: dialogHeight,
     },
-    strip: { x: 0, y: height - STRIP_HEIGHT, w: VIEW_WIDTH, h: STRIP_HEIGHT },
   };
 }
 

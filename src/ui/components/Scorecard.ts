@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { COLORS, DEPTH, FONT_FAMILY } from '../../config/constants';
 import { Rect, getSheetRect, getViewHeight } from '../../config/layout';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
-import { formatMoney } from '../../utils/MoneyFormatter';
+import { formatAmount } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
 import { ScrollArea } from './ScrollArea';
 
@@ -19,11 +19,26 @@ const TINT = {
 
 type ReportTab = 'bs' | 'pl';
 
-interface SheetRow {
-  kind: 'header' | 'item' | 'total' | 'grand';
+/** One line of a column: a section label, an account with its amount, or a subtotal. */
+interface Cell {
+  kind: 'section' | 'item' | 'subtotal';
   label: string;
   amount?: number;
   color: string;
+}
+
+/** One side of the table: a title, its lines and the total shown at the bottom. */
+interface Column {
+  title: string;
+  titleColor: number;
+  cells: Cell[];
+  totalLabel: string;
+  total: number;
+}
+
+interface Statement {
+  left: Column;
+  right: Column;
 }
 
 interface Tab {
@@ -32,20 +47,23 @@ interface Tab {
   label: Phaser.GameObjects.Text;
 }
 
-const ROW_HEIGHT = { header: 34, item: 27, total: 31, grand: 38 };
-// On the shortest screens the rows are packed tighter so a small statement fits without scrolling
-const ROW_HEIGHT_COMPACT = { header: 30, item: 25, total: 28, grand: 34 };
-const COMPACT_VIEW_HEIGHT = 700;
-const HEADER_HEIGHT = 44;
-const SUMMARY_HEIGHT = 74;
+const TABS_HEIGHT = 44;
+const COLUMN_HEADER_HEIGHT = 30;
+const FOOTER_HEIGHT = 56; // totals row and the unit note
 const TAB_WIDTH = 132;
+const CELL_PADDING = 8;
+const CELL_HEIGHT = { section: 26, item: 24, subtotal: 28 };
+// On the shortest screens the rows are packed tighter so a small statement fits without scrolling
+const CELL_HEIGHT_COMPACT = { section: 24, item: 22, subtotal: 26 };
+const COMPACT_VIEW_HEIGHT = 700;
 
 /**
  * Scorecard - the Balance Sheet and Income Statement, one at a time, as a sheet under the top bar.
  *
- * Both are laid out as vertical statements (assets, then liabilities, then net assets), which is
- * what a tall screen is good at. When a statement has more rows than fit, the body scrolls
- * (drag, mouse wheel or arrow keys) while the tabs and the totals bar stay put.
+ * Both are two-column tables like the statements in a bookkeeping textbook: the balance sheet has
+ * assets on the left and liabilities + net assets on the right, the income statement has expenses
+ * on the left and revenue on the right. The column titles and the totals row stay in place; when
+ * a table has more rows than fit, the rows between them scroll (drag, mouse wheel or arrow keys).
  *
  * BS is toggled with the B key, PL with the P key.
  */
@@ -55,7 +73,9 @@ export class Scorecard extends Phaser.GameObjects.Container {
   private bodyRect: Rect;
   private tabBs: Tab;
   private tabPl: Tab;
-  private summary: Phaser.GameObjects.Container;
+  private frame: Phaser.GameObjects.Graphics;
+  private header: Phaser.GameObjects.Container;
+  private footer: Phaser.GameObjects.Container;
   private scroll: ScrollArea;
 
   private balanceSheet?: BalanceSheet;
@@ -78,9 +98,9 @@ export class Scorecard extends Phaser.GameObjects.Container {
     const { x, y, w, h } = this.sheetRect;
     this.bodyRect = {
       x: x + 6,
-      y: y + HEADER_HEIGHT + SUMMARY_HEIGHT,
+      y: y + TABS_HEIGHT + COLUMN_HEADER_HEIGHT,
       w: w - 12,
-      h: h - HEADER_HEIGHT - SUMMARY_HEIGHT - 8,
+      h: h - TABS_HEIGHT - COLUMN_HEADER_HEIGHT - FOOTER_HEIGHT,
     };
 
     this.sheet = scene.add.container(0, 0);
@@ -100,11 +120,15 @@ export class Scorecard extends Phaser.GameObjects.Container {
     this.tabPl = this.createTab(x + 10 + TAB_WIDTH + 6, y + 6, () => this.open('pl'));
     this.createCloseButton(x + w - 10 - 32, y + 6);
 
-    // Totals bar under the tabs
-    this.summary = scene.add.container(0, 0);
-    this.sheet.add(this.summary);
+    // Table lines, column titles and the totals row (these stay put while the rows scroll)
+    this.frame = scene.add.graphics();
+    this.sheet.add(this.frame);
+    this.header = scene.add.container(0, 0);
+    this.sheet.add(this.header);
+    this.footer = scene.add.container(0, 0);
+    this.sheet.add(this.footer);
 
-    // Scrolling body, clipped to its rectangle
+    // Scrolling rows, clipped to their rectangle
     this.scroll = new ScrollArea(scene, this.bodyRect, this.sheet);
     this.scroll.setEnabled(false);
 
@@ -183,135 +207,214 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
   private render(): void {
     const lang = getLanguage();
-    this.drawTab(this.tabBs, lang === 'ja' ? '貸借対照表' : 'Balance Sheet', COLORS.ASSETS, this.activeTab === 'bs');
-    this.drawTab(this.tabPl, lang === 'ja' ? '損益計算書' : 'Income Statement', COLORS.REVENUE, this.activeTab === 'pl');
+    const ja = lang === 'ja';
+    this.drawTab(this.tabBs, ja ? '貸借対照表' : 'Balance Sheet', COLORS.ASSETS, this.activeTab === 'bs');
+    this.drawTab(this.tabPl, ja ? '損益計算書' : 'Income Statement', COLORS.REVENUE, this.activeTab === 'pl');
 
-    this.clearContainer(this.summary);
+    this.frame.clear();
+    this.clearContainer(this.header);
+    this.clearContainer(this.footer);
     this.clearContainer(this.scroll.content);
 
-    let rows: SheetRow[] = [];
+    let statement: Statement | undefined;
     if (this.activeTab === 'bs' && this.balanceSheet) {
-      rows = this.buildBalanceSheetRows(this.balanceSheet, lang);
-      this.renderBalanceSummary(this.balanceSheet, lang);
+      statement = this.buildBalanceSheet(this.balanceSheet, ja);
     } else if (this.activeTab === 'pl' && this.incomeStatement) {
-      rows = this.buildIncomeStatementRows(this.incomeStatement, lang);
-      this.renderIncomeSummary(this.incomeStatement, lang);
+      statement = this.buildIncomeStatement(this.incomeStatement, ja);
+    }
+    if (!statement) {
+      this.scroll.setContentHeight(0);
+      return;
     }
 
-    this.scroll.setContentHeight(this.renderRows(rows));
+    const colWidth = this.bodyRect.w / 2;
+    const leftX = this.bodyRect.x;
+    const rightX = this.bodyRect.x + colWidth;
+
+    this.drawColumnHeader(statement.left, leftX, colWidth);
+    this.drawColumnHeader(statement.right, rightX, colWidth);
+
+    const leftHeight = this.renderCells(statement.left.cells, leftX, colWidth);
+    const rightHeight = this.renderCells(statement.right.cells, rightX, colWidth);
+    this.scroll.setContentHeight(Math.max(leftHeight, rightHeight) + 6);
+
+    this.drawFooter(statement, leftX, rightX, colWidth, ja);
+    this.drawFrame(rightX);
   }
 
-  private buildBalanceSheetRows(bs: BalanceSheet, lang: string): SheetRow[] {
-    const ja = lang === 'ja';
-    const rows: SheetRow[] = [];
+  /** Assets on the left; liabilities and net assets on the right, each with its subtotal. */
+  private buildBalanceSheet(bs: BalanceSheet, ja: boolean): Statement {
     const name = (item: { nameJa: string; name: string }): string => (ja ? item.nameJa : item.name);
 
-    rows.push({ kind: 'header', label: ja ? '資産の部' : 'Assets', color: TINT.assets });
-    for (const a of bs.assets.filter(a => a.balance !== 0)) {
-      rows.push({ kind: 'item', label: name(a), amount: a.balance, color: TINT.assets });
-    }
-    rows.push({ kind: 'total', label: ja ? '資産合計' : 'Total Assets', amount: bs.totalAssets, color: TINT.assets });
+    const left: Cell[] = bs.assets
+      .filter(a => a.balance !== 0)
+      .map(a => ({ kind: 'item', label: name(a), amount: a.balance, color: TINT.assets }));
 
-    rows.push({ kind: 'header', label: ja ? '負債の部' : 'Liabilities', color: TINT.liabilities });
+    const right: Cell[] = [];
+    right.push({ kind: 'section', label: ja ? '負債の部' : 'Liabilities', color: TINT.liabilities });
     for (const l of bs.liabilities.filter(l => l.balance !== 0)) {
-      rows.push({ kind: 'item', label: name(l), amount: l.balance, color: TINT.liabilities });
+      right.push({ kind: 'item', label: name(l), amount: l.balance, color: TINT.liabilities });
     }
-    rows.push({ kind: 'total', label: ja ? '負債合計' : 'Total Liabilities', amount: bs.totalLiabilities, color: TINT.liabilities });
+    right.push({ kind: 'subtotal', label: ja ? '負債合計' : 'Total Liabilities', amount: bs.totalLiabilities, color: TINT.liabilities });
 
-    rows.push({ kind: 'header', label: ja ? '純資産の部' : 'Equity', color: TINT.equity });
+    right.push({ kind: 'section', label: ja ? '純資産の部' : 'Equity', color: TINT.equity });
     // The net income row is drawn separately below (with its own colour), so skip the synthetic one
     for (const e of bs.equity.filter(e => e.balance !== 0 && !e.isNetIncome)) {
-      rows.push({ kind: 'item', label: name(e), amount: e.balance, color: TINT.equity });
+      right.push({ kind: 'item', label: name(e), amount: e.balance, color: TINT.equity });
     }
     if (bs.netIncome !== 0) {
-      rows.push({
+      right.push({
         kind: 'item',
         label: ja ? '当期純利益' : 'Net Income',
         amount: bs.netIncome,
         color: bs.netIncome > 0 ? TINT.good : TINT.bad,
       });
     }
-    rows.push({ kind: 'total', label: ja ? '純資産合計' : 'Total Equity', amount: bs.totalEquity, color: TINT.equity });
+    right.push({ kind: 'subtotal', label: ja ? '純資産合計' : 'Total Equity', amount: bs.totalEquity, color: TINT.equity });
 
-    rows.push({
-      kind: 'grand',
-      label: ja ? '負債・純資産合計' : 'Liabilities + Equity',
-      amount: bs.totalLiabilities + bs.totalEquity,
-      color: '#ffd700',
-    });
-    return rows;
+    return {
+      left: {
+        title: ja ? '資産' : 'Assets',
+        titleColor: COLORS.ASSETS,
+        cells: left,
+        totalLabel: ja ? '資産合計' : 'Total Assets',
+        total: bs.totalAssets,
+      },
+      right: {
+        title: ja ? '負債・純資産' : 'Liabilities & Equity',
+        titleColor: COLORS.LIABILITIES,
+        cells: right,
+        totalLabel: ja ? '負債・純資産合計' : 'Liabilities + Equity',
+        total: bs.totalLiabilities + bs.totalEquity,
+      },
+    };
   }
 
-  private buildIncomeStatementRows(is: IncomeStatement, lang: string): SheetRow[] {
-    const ja = lang === 'ja';
-    const rows: SheetRow[] = [];
+  /** Expenses on the left, revenue on the right; the net income (or loss) goes on the shorter side. */
+  private buildIncomeStatement(is: IncomeStatement, ja: boolean): Statement {
     const name = (item: { nameJa: string; name: string }): string => (ja ? item.nameJa : item.name);
 
-    rows.push({ kind: 'header', label: ja ? '収益の部' : 'Revenues', color: TINT.revenue });
-    for (const r of is.revenues.filter(r => r.balance !== 0)) {
-      rows.push({ kind: 'item', label: name(r), amount: r.balance, color: TINT.revenue });
-    }
-    rows.push({ kind: 'total', label: ja ? '収益合計' : 'Total Revenue', amount: is.totalRevenue, color: TINT.revenue });
+    const left: Cell[] = is.expenses
+      .filter(e => e.balance !== 0)
+      .map(e => ({ kind: 'item', label: name(e), amount: e.balance, color: TINT.expenses }));
+    const right: Cell[] = is.revenues
+      .filter(r => r.balance !== 0)
+      .map(r => ({ kind: 'item', label: name(r), amount: r.balance, color: TINT.revenue }));
 
-    rows.push({ kind: 'header', label: ja ? '費用の部' : 'Expenses', color: TINT.expenses });
-    for (const e of is.expenses.filter(e => e.balance !== 0)) {
-      rows.push({ kind: 'item', label: name(e), amount: e.balance, color: TINT.expenses });
+    if (is.netIncome > 0) {
+      left.push({ kind: 'subtotal', label: ja ? '当期純利益' : 'Net Income', amount: is.netIncome, color: TINT.good });
+    } else if (is.netIncome < 0) {
+      right.push({ kind: 'subtotal', label: ja ? '当期純損失' : 'Net Loss', amount: -is.netIncome, color: TINT.bad });
     }
-    rows.push({ kind: 'total', label: ja ? '費用合計' : 'Total Expenses', amount: is.totalExpenses, color: TINT.expenses });
 
-    const label = is.netIncome >= 0
-      ? (ja ? '当期純利益' : 'Net Income')
-      : (ja ? '当期純損失' : 'Net Loss');
-    rows.push({ kind: 'grand', label, amount: is.netIncome, color: is.netIncome >= 0 ? TINT.good : TINT.bad });
-    return rows;
+    return {
+      left: {
+        title: ja ? '費用' : 'Expenses',
+        titleColor: COLORS.EXPENSES,
+        cells: left,
+        totalLabel: ja ? '合計' : 'Total',
+        total: is.totalExpenses + Math.max(0, is.netIncome),
+      },
+      right: {
+        title: ja ? '収益' : 'Revenue',
+        titleColor: COLORS.REVENUE,
+        cells: right,
+        totalLabel: ja ? '合計' : 'Total',
+        total: is.totalRevenue + Math.max(0, -is.netIncome),
+      },
+    };
   }
 
-  /** Draw the rows top to bottom inside the scrolling content; returns their total height. */
-  private renderRows(rows: SheetRow[]): number {
+  private drawColumnHeader(column: Column, x: number, width: number): void {
     const { scene } = this;
-    const left = this.bodyRect.x + 10;
-    const right = this.bodyRect.x + this.bodyRect.w - 10;
-    const rowHeights = getViewHeight() < COMPACT_VIEW_HEIGHT ? ROW_HEIGHT_COMPACT : ROW_HEIGHT;
-    let y = this.bodyRect.y + 4;
+    const y = this.sheetRect.y + TABS_HEIGHT;
 
-    for (const row of rows) {
-      const height = rowHeights[row.kind];
-      const center = y + height / 2;
+    const bg = scene.add.graphics();
+    bg.fillStyle(column.titleColor, 0.25);
+    bg.fillRect(x + 1, y, width - 2, COLUMN_HEADER_HEIGHT - 3);
+    bg.lineStyle(2, column.titleColor, 1);
+    bg.lineBetween(x + 1, y + COLUMN_HEADER_HEIGHT - 3, x + width - 1, y + COLUMN_HEADER_HEIGHT - 3);
+    this.header.add(bg);
 
-      if (row.kind === 'header') {
+    const title = this.makeText(x + width / 2, y + (COLUMN_HEADER_HEIGHT - 3) / 2, column.title, 14, '#ffffff', true, 0.5);
+    this.header.add(title);
+  }
+
+  /** Draw the cells of one column top to bottom inside the scrolling content; returns their height. */
+  private renderCells(cells: Cell[], x: number, width: number): number {
+    const { scene } = this;
+    const heights = getViewHeight() < COMPACT_VIEW_HEIGHT ? CELL_HEIGHT_COMPACT : CELL_HEIGHT;
+    let y = this.bodyRect.y + 2;
+
+    for (const cell of cells) {
+      if (cell.kind === 'section') {
+        const height = heights.section;
         const bar = scene.add.graphics();
-        bar.fillStyle(Phaser.Display.Color.HexStringToColor(row.color).color, 1);
-        bar.fillRoundedRect(left - 2, center - 8, 4, 18, 2);
+        bar.fillStyle(Phaser.Display.Color.HexStringToColor(cell.color).color, 1);
+        bar.fillRoundedRect(x + 4, y + height / 2 - 7, 3, 14, 1.5);
         this.scroll.content.add(bar);
-        this.scroll.content.add(this.makeText(left + 8, center + 2, row.label, 15, row.color, true, 0));
-      } else {
-        const bold = row.kind !== 'item';
-        if (row.kind === 'total' || row.kind === 'grand') {
-          const line = scene.add.graphics();
-          const color = row.kind === 'grand' ? 0xffd700 : Phaser.Display.Color.HexStringToColor(row.color).color;
-          line.lineStyle(1, color, row.kind === 'grand' ? 0.8 : 0.4);
-          line.lineBetween(left, y + 1, right, y + 1);
-          if (row.kind === 'grand') {
-            line.lineBetween(left, y + 4, right, y + 4);
-          }
-          this.scroll.content.add(line);
-        }
-        const indent = row.kind === 'item' ? 12 : 0;
-        const size = row.kind === 'item' ? 15 : 16;
-        const labelColor = row.kind === 'item' ? '#eeeeee' : row.kind === 'grand' ? '#ffd700' : '#ffffff';
-        const amountText = this.makeText(right, center + 2, formatMoney(row.amount ?? 0), size, row.color, true, 1);
-        const labelText = this.makeText(left + indent, center + 2, row.label, size, labelColor, bold, 0);
-        // A long account name must never run into its amount
-        const room = right - left - indent - amountText.width - 10;
-        if (labelText.width > room && room > 0) {
-          labelText.setScale(room / labelText.width);
-        }
-        this.scroll.content.add(amountText);
-        this.scroll.content.add(labelText);
+        this.scroll.content.add(this.makeText(x + CELL_PADDING + 4, y + height / 2, cell.label, 13, cell.color, true, 0));
+        y += height;
+        continue;
       }
+
+      const bold = cell.kind === 'subtotal';
+      const base = bold ? heights.subtotal : heights.item;
+      const amountText = this.makeText(x + width - CELL_PADDING, 0, formatAmount(cell.amount ?? 0), 13, cell.color, true, 1);
+      // A long account name wraps onto a second line instead of running into its amount
+      const room = Math.max(40, width - CELL_PADDING * 2 - amountText.width - 8);
+      const labelText = this.makeText(x + CELL_PADDING, 0, cell.label, 13, bold ? '#ffffff' : '#eeeeee', bold, 0, room);
+      const height = Math.max(base, Math.ceil(labelText.height));
+
+      if (bold) {
+        const line = scene.add.graphics();
+        line.lineStyle(1, Phaser.Display.Color.HexStringToColor(cell.color).color, 0.5);
+        line.lineBetween(x + CELL_PADDING, y + 0.5, x + width - CELL_PADDING, y + 0.5);
+        this.scroll.content.add(line);
+      }
+      amountText.setY(y + height / 2);
+      labelText.setY(y + height / 2);
+      this.scroll.content.add(amountText);
+      this.scroll.content.add(labelText);
       y += height;
     }
-    return y + 8 - this.bodyRect.y;
+    return y - this.bodyRect.y;
+  }
+
+  /** The totals row and the unit note under the table; the two totals sit side by side. */
+  private drawFooter(statement: Statement, leftX: number, rightX: number, width: number, ja: boolean): void {
+    const { scene } = this;
+    const top = this.sheetRect.y + this.sheetRect.h - FOOTER_HEIGHT;
+    const balanced = statement.left.total === statement.right.total;
+
+    // Double rule above the totals
+    const rule = scene.add.graphics();
+    rule.lineStyle(1, 0xffd700, 0.8);
+    rule.lineBetween(leftX + 2, top + 3, rightX + width - 2, top + 3);
+    rule.lineBetween(leftX + 2, top + 6, rightX + width - 2, top + 6);
+    this.footer.add(rule);
+
+    for (const [column, x] of [[statement.left, leftX], [statement.right, rightX]] as [Column, number][]) {
+      const centerY = top + 8 + 17;
+      const amountText = this.makeText(x + width - CELL_PADDING, centerY, formatAmount(column.total), 15, balanced ? '#ffd700' : TINT.bad, true, 1);
+      const room = Math.max(40, width - CELL_PADDING * 2 - amountText.width - 6);
+      const labelText = this.makeText(x + CELL_PADDING, centerY, column.totalLabel, 13, '#ffffff', true, 0, room);
+      this.footer.add(amountText);
+      this.footer.add(labelText);
+    }
+
+    const unit = this.makeText(rightX + width - CELL_PADDING, top + FOOTER_HEIGHT - 12, ja ? '単位: 円' : 'Unit: G', 12, '#8a90a8', false, 1);
+    this.footer.add(unit);
+  }
+
+  /** The line between the two columns, and a rule under the column titles. */
+  private drawFrame(dividerX: number): void {
+    const { y, h } = this.sheetRect;
+    const top = y + TABS_HEIGHT;
+    const bottom = y + h - FOOTER_HEIGHT;
+    this.frame.lineStyle(1, 0x4a4a6a, 1);
+    this.frame.lineBetween(dividerX, top, dividerX, bottom);
+    this.frame.lineBetween(this.bodyRect.x, bottom, this.bodyRect.x + this.bodyRect.w, bottom);
   }
 
   private makeText(
@@ -321,7 +424,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     size: number,
     color: string,
     bold: boolean,
-    originX: number
+    originX: number,
+    wrapWidth?: number
   ): Phaser.GameObjects.Text {
     const label = this.scene.add.text(x, y, text, {
       fontFamily: FONT_FAMILY,
@@ -329,80 +433,10 @@ export class Scorecard extends Phaser.GameObjects.Container {
       color,
       fontStyle: bold ? 'bold' : 'normal',
       padding: { top: 4, bottom: 4 },
+      ...(wrapWidth ? { wordWrap: { width: wrapWidth, useAdvancedWrap: true } } : {}),
     });
     label.setOrigin(originX, 0.5);
     return label;
-  }
-
-  // ---- Totals bar ---------------------------------------------------------
-
-  /** Three boxes and their operators, e.g. Assets = Liabilities + Equity. */
-  private renderSummary(
-    boxes: { label: string; amount: number; color: string }[],
-    operators: string[],
-    footer: { text: string; color: string }
-  ): void {
-    const { scene } = this;
-    const { x, y, w } = this.sheetRect;
-    const top = y + HEADER_HEIGHT;
-    const operatorWidth = 20;
-    const boxWidth = (w - 20 - operatorWidth * 2) / 3;
-
-    boxes.forEach((box, index) => {
-      const bx = x + 10 + index * (boxWidth + operatorWidth);
-      const bg = scene.add.graphics();
-      bg.fillStyle(0x1e1e38, 1);
-      bg.fillRoundedRect(bx, top, boxWidth, 46, 8);
-      bg.lineStyle(1, Phaser.Display.Color.HexStringToColor(box.color).color, 0.7);
-      bg.strokeRoundedRect(bx, top, boxWidth, 46, 8);
-      this.summary.add(bg);
-
-      this.summary.add(this.makeText(bx + boxWidth / 2, top + 13, box.label, 12, '#aab0c8', false, 0.5));
-      const amount = this.makeText(bx + boxWidth / 2, top + 32, formatMoney(box.amount), 15, box.color, true, 0.5);
-      // Large amounts shrink to stay inside their box
-      if (amount.width > boxWidth - 8) {
-        amount.setScale((boxWidth - 8) / amount.width);
-      }
-      this.summary.add(amount);
-
-      if (index < operators.length) {
-        this.summary.add(this.makeText(bx + boxWidth + operatorWidth / 2, top + 24, operators[index], 16, '#aab0c8', true, 0.5));
-      }
-    });
-
-    this.summary.add(this.makeText(x + w / 2, top + 60, footer.text, 12, footer.color, true, 0.5));
-  }
-
-  private renderBalanceSummary(bs: BalanceSheet, lang: string): void {
-    const ja = lang === 'ja';
-    this.renderSummary(
-      [
-        { label: ja ? '資産' : 'Assets', amount: bs.totalAssets, color: TINT.assets },
-        { label: ja ? '負債' : 'Liabilities', amount: bs.totalLiabilities, color: TINT.liabilities },
-        { label: ja ? '純資産' : 'Equity', amount: bs.totalEquity, color: TINT.equity },
-      ],
-      ['＝', '＋'],
-      bs.isBalanced
-        ? { text: ja ? '✓ 貸借一致' : '✓ Balanced', color: TINT.good }
-        : { text: ja ? '✗ 貸借不一致' : '✗ Imbalanced', color: TINT.bad }
-    );
-  }
-
-  private renderIncomeSummary(is: IncomeStatement, lang: string): void {
-    const ja = lang === 'ja';
-    this.renderSummary(
-      [
-        { label: ja ? '収益' : 'Revenue', amount: is.totalRevenue, color: TINT.revenue },
-        { label: ja ? '費用' : 'Expenses', amount: is.totalExpenses, color: TINT.expenses },
-        {
-          label: is.netIncome >= 0 ? (ja ? '純利益' : 'Net Income') : (ja ? '純損失' : 'Net Loss'),
-          amount: is.netIncome,
-          color: is.netIncome >= 0 ? TINT.good : TINT.bad,
-        },
-      ],
-      ['－', '＝'],
-      { text: ja ? '収益 － 費用 ＝ 当期純利益' : 'Revenue − Expenses = Net Income', color: '#aab0c8' }
-    );
   }
 
   private clearContainer(container: Phaser.GameObjects.Container): void {
