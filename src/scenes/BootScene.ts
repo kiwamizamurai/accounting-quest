@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { SCENES, COLORS } from '../config/constants';
+import { SCENES, COLORS, GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY } from '../config/constants';
+import { applyRenderScale } from '../utils/renderScale';
 import { getAudioManager } from '../managers/AudioManager';
 
 export class BootScene extends Phaser.Scene {
@@ -7,12 +8,16 @@ export class BootScene extends Phaser.Scene {
     super(SCENES.BOOT);
   }
 
+  init(): void {
+    applyRenderScale(this);
+  }
+
   preload(): void {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
 
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '24px',
       color: '#ffffff',
       padding: { top: 4, bottom: 4 },

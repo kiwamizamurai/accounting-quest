@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DEPTH, GAME_WIDTH, GAME_HEIGHT, VN_CHOICE_PROMPT_Y } from '../../config/constants';
+import { DEPTH, GAME_WIDTH, GAME_HEIGHT, VN_CHOICE_PROMPT_Y, FONT_FAMILY } from '../../config/constants';
 import { ChoiceOption } from '../../vn/types';
 import { t } from '../../i18n';
 
@@ -17,7 +17,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     super(scene, 0, 0);
 
     this.promptText = scene.add.text(GAME_WIDTH / 2, VN_CHOICE_PROMPT_Y, '', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '18px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -105,7 +105,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     container.add(bg);
 
     const label = this.scene.add.text(0, 0, text, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '16px',
       color: '#ffffff',
       padding: { top: 4, bottom: 4 },

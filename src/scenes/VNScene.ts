@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, DEPTH, FONT_FAMILY } from '../config/constants';
 import { ScriptEngine, ScriptEngineCallback } from '../vn/ScriptEngine';
 import { CharacterPosition } from '../vn/types';
 import { getGameStateManager } from '../state/GameStateManager';
@@ -50,6 +50,7 @@ import { chapter207 } from '../data/chapters/chapter207';
 import { chapter208 } from '../data/chapters/chapter208';
 import { chapter209 } from '../data/chapters/chapter209';
 import { chapter210 } from '../data/chapters/chapter210';
+import { applyRenderScale } from '../utils/renderScale';
 import { ChapterScript } from '../vn/types';
 
 interface VNSceneData {
@@ -76,6 +77,7 @@ export class VNScene extends Phaser.Scene {
   }
 
   create(data: VNSceneData): void {
+    applyRenderScale(this);
     const chapterId = data.chapterId ?? 1;
     const gameState = getGameStateManager();
     const lang = getLanguage();
@@ -117,7 +119,7 @@ export class VNScene extends Phaser.Scene {
 
     // Chapter label (top-left)
     this.chapterLabel = this.add.text(20, 20, `Ch.${chapterId}`, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '14px',
       color: '#ffd700',
       backgroundColor: '#1a1a2e',
@@ -127,7 +129,7 @@ export class VNScene extends Phaser.Scene {
 
     // Settings button (top row, left of the PL/BS toggles so it never overlaps the report panels)
     this.settingsButton = this.add.text(GAME_WIDTH - 224, 17, '⚙', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '16px',
       color: '#ffffff',
       backgroundColor: '#4a4a6a',
@@ -142,7 +144,7 @@ export class VNScene extends Phaser.Scene {
 
     // Language toggle (top row, between the settings button and the PL/BS toggles)
     this.langButton = this.add.text(GAME_WIDTH - 190, 20, lang === 'ja' ? 'EN' : 'JA', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '12px',
       color: '#ffffff',
       backgroundColor: '#4a4a6a',
@@ -478,7 +480,7 @@ export class VNScene extends Phaser.Scene {
       GAME_WIDTH / 2, 100,
       lang === 'ja' ? '章のまとめ' : 'Chapter Summary',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '24px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -492,7 +494,7 @@ export class VNScene extends Phaser.Scene {
       GAME_WIDTH / 2, GAME_HEIGHT / 2,
       summary,
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '16px',
         color: '#ffffff',
         wordWrap: { width: GAME_WIDTH - 100, useAdvancedWrap: true },
@@ -508,7 +510,7 @@ export class VNScene extends Phaser.Scene {
       GAME_WIDTH / 2, GAME_HEIGHT - 80,
       lang === 'ja' ? 'クリックで続ける...' : 'Click to continue...',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#aaaacc',
         padding: { top: 4, bottom: 4 },
@@ -552,7 +554,7 @@ export class VNScene extends Phaser.Scene {
 
   private showNotification(text: string): void {
     const notif = this.add.text(GAME_WIDTH / 2, 80, text, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '14px',
       color: '#4ad94a',
       backgroundColor: '#1a1a2e',
@@ -610,7 +612,7 @@ export class VNScene extends Phaser.Scene {
       panelY + 20,
       lang === 'ja' ? '設定' : 'Settings',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '20px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -626,7 +628,7 @@ export class VNScene extends Phaser.Scene {
       bgmLabelY,
       lang === 'ja' ? 'BGM: ' : 'BGM: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
       }
@@ -666,7 +668,7 @@ export class VNScene extends Phaser.Scene {
       musicVolumeLabelY,
       lang === 'ja' ? '音楽音量: ' : 'Music: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: '#ffffff',
       }
@@ -690,7 +692,7 @@ export class VNScene extends Phaser.Scene {
     musicSliderArea.setInteractive({ useHandCursor: true });
     musicSliderArea.setDepth(DEPTH.TRANSITION);
     musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.x - (panelX + 30);
+      const localX = pointer.worldX - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ musicVolume: newVolume });
       getAudioManager().setMusicVolume(newVolume);
@@ -706,7 +708,7 @@ export class VNScene extends Phaser.Scene {
       sfxVolumeLabelY,
       lang === 'ja' ? 'SFX音量: ' : 'SFX: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: '#ffffff',
       }
@@ -730,7 +732,7 @@ export class VNScene extends Phaser.Scene {
     sfxSliderArea.setInteractive({ useHandCursor: true });
     sfxSliderArea.setDepth(DEPTH.TRANSITION);
     sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.x - (panelX + 30);
+      const localX = pointer.worldX - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ sfxVolume: newVolume });
       sfxSliderFill.clear();

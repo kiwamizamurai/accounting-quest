@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS } from '../../config/constants';
+import { COLORS, FONT_FAMILY } from '../../config/constants';
 
 export interface ButtonConfig {
   x: number;
@@ -38,7 +38,7 @@ export class Button extends Phaser.GameObjects.Container {
 
     // Create label
     this.label = scene.add.text(0, 0, config.text, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: `${config.fontSize ?? 16}px`,
       color: '#ffffff',
       fontStyle: 'bold',

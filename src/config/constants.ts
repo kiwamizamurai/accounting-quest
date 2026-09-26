@@ -56,6 +56,12 @@ export const SCENES = {
   VN: 'VNScene',
 } as const;
 
+// Readable Japanese UI font. These are the fonts already installed on the player's device
+// (Hiragino Sans on Apple, Noto Sans JP on Android/Linux, Yu Gothic / Meiryo on Windows), so no
+// font file is bundled and there is no licence to manage.
+export const FONT_FAMILY =
+  '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "BIZ UDPGothic", "Yu Gothic UI", "Yu Gothic", Meiryo, system-ui, sans-serif';
+
 // VN dialog box geometry. The BS/PL panels (Scorecard) must stay above VN_DIALOG_TOP.
 export const VN_DIALOG_HEIGHT = 112;
 export const VN_DIALOG_MARGIN = 14; // gap between the box and the bottom edge

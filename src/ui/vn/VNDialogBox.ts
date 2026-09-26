@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN } from '../../config/constants';
+import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN, FONT_FAMILY } from '../../config/constants';
 import { getCharacterName } from '../../data/characters';
 
 export class VNDialogBox extends Phaser.GameObjects.Container {
@@ -45,7 +45,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
 
     // Speaker name
     this.speakerText = scene.add.text(this.boxX + this.padding + 8, this.boxY - 16, '', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '15px',
       color: '#ffffff',
       fontStyle: 'bold',
@@ -59,7 +59,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
       this.boxY + 14,
       '',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '16px',
         color: '#ffffff',
         wordWrap: { width: this.boxWidth - this.padding * 2, useAdvancedWrap: true },
@@ -75,7 +75,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
       this.boxY + this.boxHeight - 28,
       '>>',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
         padding: { top: 4, bottom: 4 },
