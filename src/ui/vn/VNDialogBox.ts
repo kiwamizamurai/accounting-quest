@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN, FONT_FAMILY } from '../../config/constants';
+import { COLORS, DEPTH, ANIMATION, FONT_FAMILY } from '../../config/constants';
+import { getVNLayout, DIALOG_TAG_HEIGHT, Rect } from '../../config/layout';
 import { getCharacterName } from '../../data/characters';
 
 export class VNDialogBox extends Phaser.GameObjects.Container {
@@ -20,23 +21,22 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   private inputBlocked = false;
   private blinkTween?: Phaser.Tweens.Tween;
 
-  private boxWidth: number;
-  private boxHeight = VN_DIALOG_HEIGHT;
-  private boxX: number;
-  private boxY: number;
-  private padding = 20;
+  private box: Rect;
+  private tagColor: number = COLORS.ASSETS;
+  private compact = false;
+  private padding = 16;
+  // Text sizes tried from the largest; the first one that fits the box is used
+  private static readonly FONT_SIZES = [17, 16, 15, 14, 13];
+  private static readonly COMPACT_FONT_SIZES = [14, 13, 12];
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
     this.typingSpeed = ANIMATION.DIALOG_SPEED;
-    this.boxWidth = GAME_WIDTH - 40;
-    this.boxX = 20;
-    this.boxY = GAME_HEIGHT - this.boxHeight - VN_DIALOG_MARGIN;
+    this.box = getVNLayout().dialog;
 
     // Background
     this.background = scene.add.graphics();
-    this.drawBackground();
     this.add(this.background);
 
     // Speaker name background
@@ -44,9 +44,9 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.add(this.speakerBg);
 
     // Speaker name
-    this.speakerText = scene.add.text(this.boxX + this.padding + 8, this.boxY - 16, '', {
+    this.speakerText = scene.add.text(0, 0, '', {
       fontFamily: FONT_FAMILY,
-      fontSize: '15px',
+      fontSize: '14px',
       color: '#ffffff',
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -54,33 +54,23 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.add(this.speakerText);
 
     // Dialog text
-    this.dialogText = scene.add.text(
-      this.boxX + this.padding,
-      this.boxY + 14,
-      '',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '16px',
-        color: '#ffffff',
-        wordWrap: { width: this.boxWidth - this.padding * 2, useAdvancedWrap: true },
-        lineSpacing: 4,
-        padding: { top: 4, bottom: 4 },
-      }
-    );
+    this.dialogText = scene.add.text(0, 0, '', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '17px',
+      color: '#ffffff',
+      lineSpacing: 6,
+      padding: { top: 4, bottom: 4 },
+    });
     this.add(this.dialogText);
 
     // Continue indicator
-    this.continueIndicator = scene.add.text(
-      this.boxX + this.boxWidth - 36,
-      this.boxY + this.boxHeight - 28,
-      '>>',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '14px',
-        color: '#ffffff',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
+    this.continueIndicator = scene.add.text(0, 0, '\u25BC', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '14px',
+      color: '#ffd700',
+      padding: { top: 4, bottom: 4 },
+    });
+    this.continueIndicator.setOrigin(1, 1);
     this.continueIndicator.setVisible(false);
     this.add(this.continueIndicator);
 
@@ -92,34 +82,69 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
       repeat: -1,
     });
 
+    this.applyLayout();
     this.setDepth(DEPTH.DIALOG);
     this.setVisible(false);
 
     scene.add.existing(this);
   }
 
+  /** Shrink the box to a couple of lines (a report sheet is open above it) or restore the full size. */
+  setCompact(compact: boolean): void {
+    if (this.compact === compact) return;
+    this.compact = compact;
+    this.applyLayout();
+  }
+
+  /** The box's current area (the speaker tag sits above it). */
+  getBox(): Rect {
+    return this.box;
+  }
+
+  private applyLayout(): void {
+    this.box = getVNLayout(this.compact).dialog;
+    const { x, y, w, h } = this.box;
+
+    this.drawBackground();
+    this.speakerText.setPosition(x + this.padding + 8, y - DIALOG_TAG_HEIGHT + 3);
+    this.dialogText.setPosition(x + this.padding, y + 12);
+    this.dialogText.setWordWrapWidth(w - this.padding * 2, true);
+    this.continueIndicator.setPosition(x + w - 12, y + h - 8);
+    this.drawSpeakerTag(this.tagColor);
+    this.fitText();
+  }
+
+  /** Use the largest text size at which the whole current text fits inside the box. */
+  private fitText(): void {
+    const sizes = this.compact ? VNDialogBox.COMPACT_FONT_SIZES : VNDialogBox.FONT_SIZES;
+    const room = this.box.h - 12 - 14;
+    const shown = this.dialogText.text;
+    this.dialogText.setText(this.currentText || shown);
+    let chosen = sizes[sizes.length - 1];
+    for (const size of sizes) {
+      this.dialogText.setFontSize(size);
+      this.dialogText.setLineSpacing(Math.round(size * 0.35));
+      if (this.dialogText.height <= room) {
+        chosen = size;
+        break;
+      }
+    }
+    this.dialogText.setFontSize(chosen);
+    this.dialogText.setLineSpacing(Math.round(chosen * 0.35));
+    this.dialogText.setText(shown);
+  }
+
   private drawBackground(): void {
+    const { x, y, w, h } = this.box;
     this.background.clear();
 
     // Semi-transparent background
-    this.background.fillStyle(0x0a0a1e, 0.92);
-    this.background.fillRoundedRect(
-      this.boxX,
-      this.boxY,
-      this.boxWidth,
-      this.boxHeight,
-      8
-    );
+    this.background.fillStyle(0x0a0a1e, 0.94);
+    this.background.fillRoundedRect(x, y, w, h, 12);
 
     // Border
     this.background.lineStyle(2, 0x4a90d9, 0.8);
-    this.background.strokeRoundedRect(
-      this.boxX,
-      this.boxY,
-      this.boxWidth,
-      this.boxHeight,
-      8
-    );
+    this.background.strokeRoundedRect(x, y, w, h, 12);
   }
 
   private drawSpeakerTag(speakerColor: number): void {
@@ -127,24 +152,24 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     const text = this.speakerText.text;
     if (!text) return;
 
-    const tagWidth = text.length * 10 + 24;
-    this.speakerBg.fillStyle(speakerColor, 0.9);
+    const tagWidth = this.speakerText.width + 24;
+    this.speakerBg.fillStyle(speakerColor, 0.95);
     this.speakerBg.fillRoundedRect(
-      this.boxX + this.padding,
-      this.boxY - 22,
+      this.box.x + this.padding,
+      this.box.y - DIALOG_TAG_HEIGHT,
       tagWidth,
-      28,
-      4
+      DIALOG_TAG_HEIGHT + 6,
+      6
     );
   }
 
   showDialog(speaker: string, text: string, onAdvance?: () => void): void {
     this.stopTyping();
     const speakerName = getCharacterName(speaker);
-    const speakerColor = this.getSpeakerColor(speaker);
+    this.tagColor = this.getSpeakerColor(speaker);
 
     this.speakerText.setText(speakerName);
-    this.drawSpeakerTag(speakerColor);
+    this.drawSpeakerTag(this.tagColor);
 
     this.currentText = text;
     this.displayedText = '';
@@ -154,6 +179,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
 
     this.dialogText.setText('');
     this.dialogText.setColor('#ffffff');
+    this.fitText();
     this.continueIndicator.setVisible(false);
     this.setVisible(true);
 
@@ -181,6 +207,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
 
     this.dialogText.setText('');
     this.dialogText.setColor('#aaaaff');
+    this.fitText();
     this.continueIndicator.setVisible(false);
     this.setVisible(true);
 

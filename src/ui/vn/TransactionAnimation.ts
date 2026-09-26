@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, DEPTH, FONT_FAMILY } from '../../config/constants';
+import { DEPTH, FONT_FAMILY } from '../../config/constants';
+import { VIEW_WIDTH, HUD_HEIGHT, getViewHeight } from '../../config/layout';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { t } from '../../i18n';
 
@@ -36,68 +37,73 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     this.isClosing = false;
     this.setVisible(true);
 
-    const cx = GAME_WIDTH / 2;
-    const baseY = GAME_HEIGHT / 2 - 80;
+    const height = getViewHeight();
+    const cx = VIEW_WIDTH / 2;
 
     // Background overlay
     const overlay = this.scene.add.graphics();
-    overlay.fillStyle(0x000000, 0.5);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    overlay.fillStyle(0x000000, 0.55);
+    overlay.fillRect(0, 0, VIEW_WIDTH, height);
     this.animContainer.add(overlay);
 
-    // Journal entry box
-    const boxWidth = 500;
-    const boxHeight = 50 + entries.length * 36 + 20;
+    // Journal entry box, centred between the HUD and the bottom of the screen
+    const boxWidth = VIEW_WIDTH - 20;
+    const inner = boxWidth - 32;
+    const titleText = this.scene.add.text(0, 0, description, {
+      fontFamily: FONT_FAMILY,
+      fontSize: '16px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: inner, useAdvancedWrap: true },
+      lineSpacing: 4,
+      padding: { top: 4, bottom: 4 },
+    });
+    const rowHeight = 38;
+    const headerY = 20 + titleText.height + 8;
+    const boxHeight = headerY + 30 + entries.length * rowHeight + 46;
     const boxX = cx - boxWidth / 2;
-    const boxY = baseY;
+    const boxY = Math.max(HUD_HEIGHT + 8, Math.round((height - boxHeight) / 2) - 30);
 
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x1a1a3e, 0.95);
-    bg.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 8);
+    bg.fillStyle(0x1a1a3e, 0.97);
+    bg.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 14);
     bg.lineStyle(2, 0xffd700, 0.8);
-    bg.strokeRoundedRect(boxX, boxY, boxWidth, boxHeight, 8);
+    bg.strokeRoundedRect(boxX, boxY, boxWidth, boxHeight, 14);
     this.animContainer.add(bg);
 
     // Title
-    const titleText = this.scene.add.text(cx, boxY + 16, description, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '15px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
+    titleText.setPosition(cx, boxY + 16);
     titleText.setOrigin(0.5, 0);
     this.animContainer.add(titleText);
 
     // Header line
-    const headerY = boxY + 44;
+    const lineY = boxY + headerY;
     const headerLine = this.scene.add.graphics();
     headerLine.lineStyle(1, 0xffd700, 0.3);
-    headerLine.lineBetween(boxX + 20, headerY, boxX + boxWidth - 20, headerY);
+    headerLine.lineBetween(boxX + 16, lineY, boxX + boxWidth - 16, lineY);
     this.animContainer.add(headerLine);
 
-    // Debit / Credit headers
-    const debitHeader = this.scene.add.text(
-      boxX + boxWidth - 160, headerY + 4,
-      t('ui.debit'),
-      { fontFamily: FONT_FAMILY, fontSize: '12px', color: '#4a90d9', padding: { top: 4, bottom: 4 } }
-    );
+    // Debit / Credit headers (right-aligned over their amount columns)
+    const creditRight = boxX + boxWidth - 16;
+    const debitRight = creditRight - 96;
+    const headerStyle = { fontFamily: FONT_FAMILY, fontSize: '13px', padding: { top: 4, bottom: 4 } };
+    const debitHeader = this.scene.add.text(debitRight, lineY + 4, t('ui.debit'), { ...headerStyle, color: '#6aaeef' });
+    debitHeader.setOrigin(1, 0);
     this.animContainer.add(debitHeader);
 
-    const creditHeader = this.scene.add.text(
-      boxX + boxWidth - 80, headerY + 4,
-      t('ui.credit'),
-      { fontFamily: FONT_FAMILY, fontSize: '12px', color: '#d94a4a', padding: { top: 4, bottom: 4 } }
-    );
+    const creditHeader = this.scene.add.text(creditRight, lineY + 4, t('ui.credit'), { ...headerStyle, color: '#ef7a7a' });
+    creditHeader.setOrigin(1, 0);
     this.animContainer.add(creditHeader);
 
     // Entries - animate one by one
+    const rowsTop = lineY + 30;
     entries.forEach((entry, index) => {
-      const entryY = headerY + 24 + index * 36;
+      const entryY = rowsTop + index * rowHeight;
       const delay = 300 + index * 400;
 
       this.scene.time.delayedCall(delay, () => {
-        this.addEntryRow(entry, boxX + 30, entryY, boxWidth);
+        this.addEntryRow(entry, boxX + 16, entryY, debitRight, creditRight);
       });
     });
 
@@ -106,7 +112,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     const animDuration = 300 + entries.length * 400 + 300;
     this.scene.time.delayedCall(animDuration, () => {
       this.isReady = true;
-      this.showContinueIndicator(cx, boxY + boxHeight);
+      this.showContinueIndicator(cx, boxY + boxHeight - 34);
     });
 
     // Skip listeners
@@ -119,85 +125,72 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     entry: AnimationEntry,
     x: number,
     y: number,
-    boxWidth: number,
+    debitRight: number,
+    creditRight: number,
   ): void {
+    // Rows appear only after the animation started, so the scene may be gone by then
+    if (!this.scene || !this.animContainer.active) return;
     const name = t(`account.${entry.account}`);
 
     const isCredit = (entry.credit ?? 0) > 0 && (entry.debit ?? 0) === 0;
-    const indent = isCredit ? '  ' : '';
+    const indent = isCredit ? '   ' : '';
 
     const nameText = this.scene.add.text(x, y, `${indent}${name}`, {
       fontFamily: FONT_FAMILY,
-      fontSize: '14px',
+      fontSize: '15px',
       color: '#ffffff',
       padding: { top: 4, bottom: 4 },
     });
     nameText.setAlpha(0);
+    // Keep a long account name clear of the amount columns
+    const nameRoom = debitRight - x - 84;
+    if (nameText.width > nameRoom) {
+      nameText.setScale(nameRoom / nameText.width);
+    }
     this.animContainer.add(nameText);
 
-    if ((entry.debit ?? 0) > 0) {
-      const debitText = this.scene.add.text(
-        x + boxWidth - 200,
-        y,
-        formatMoney(entry.debit!),
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '14px',
-          color: '#4a90d9',
-          padding: { top: 4, bottom: 4 },
-        }
-      );
-      debitText.setAlpha(0);
-      this.animContainer.add(debitText);
+    const addAmount = (amount: number, right: number, color: string): void => {
+      const amountText = this.scene.add.text(right, y, formatMoney(amount), {
+        fontFamily: FONT_FAMILY,
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color,
+        padding: { top: 4, bottom: 4 },
+      });
+      amountText.setOrigin(1, 0);
+      amountText.setAlpha(0);
+      this.animContainer.add(amountText);
       this.scene.tweens.add({
-        targets: debitText,
+        targets: amountText,
         alpha: 1,
-        y: y,
         duration: 300,
         ease: 'Power2',
       });
-    }
+    };
 
+    if ((entry.debit ?? 0) > 0) {
+      addAmount(entry.debit!, debitRight, '#6aaeef');
+    }
     if ((entry.credit ?? 0) > 0) {
-      const creditText = this.scene.add.text(
-        x + boxWidth - 120,
-        y,
-        formatMoney(entry.credit!),
-        {
-          fontFamily: FONT_FAMILY,
-          fontSize: '14px',
-          color: '#d94a4a',
-          padding: { top: 4, bottom: 4 },
-        }
-      );
-      creditText.setAlpha(0);
-      this.animContainer.add(creditText);
-      this.scene.tweens.add({
-        targets: creditText,
-        alpha: 1,
-        y: y,
-        duration: 300,
-        ease: 'Power2',
-      });
+      addAmount(entry.credit!, creditRight, '#ef7a7a');
     }
 
     this.scene.tweens.add({
       targets: nameText,
       alpha: 1,
-      y: y,
       duration: 300,
       ease: 'Power2',
     });
   }
 
-  private showContinueIndicator(cx: number, boxBottomY: number): void {
+  private showContinueIndicator(cx: number, y: number): void {
     const indicator = this.scene.add.text(
       cx,
-      boxBottomY + 10,
-      `>> ${t('ui.clickToContinue')}`,
+      y,
+      `\u25BC ${t('ui.clickToContinue')}`,
       {
         fontFamily: FONT_FAMILY,
-        fontSize: '13px',
+        fontSize: '14px',
         color: '#ffffff',
         padding: { top: 4, bottom: 4 },
       }

@@ -1,278 +1,405 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_CHOICE_TOP, VN_DIALOG_TOP, FONT_FAMILY } from '../../config/constants';
-import { CHOICE_PANEL_HIDDEN, CHOICE_PANEL_SHOWN } from '../vn/ChoicePanel';
+import { COLORS, DEPTH, FONT_FAMILY } from '../../config/constants';
+import { Rect, getSheetRect } from '../../config/layout';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
+import { ScrollArea } from './ScrollArea';
+
+/** Text colours of the account types, lighter than the panel colours so they read on the dark sheet. */
+const TINT = {
+  assets: '#6aaeef',
+  liabilities: '#ef7a7a',
+  equity: '#6ee06e',
+  revenue: '#e6c65c',
+  expenses: '#c58cf0',
+  good: '#22c55e',
+  bad: '#ef4444',
+};
+
+type ReportTab = 'bs' | 'pl';
+
+interface SheetRow {
+  kind: 'header' | 'item' | 'total' | 'grand';
+  label: string;
+  amount?: number;
+  color: string;
+}
+
+interface Tab {
+  container: Phaser.GameObjects.Container;
+  bg: Phaser.GameObjects.Graphics;
+  label: Phaser.GameObjects.Text;
+}
+
+const ROW_HEIGHT = { header: 34, item: 27, total: 31, grand: 38 };
+const HEADER_HEIGHT = 44;
+const SUMMARY_HEIGHT = 74;
+const TAB_WIDTH = 132;
 
 /**
- * Scorecard - T-account style Balance Sheet and Income Statement panels.
+ * Scorecard - the Balance Sheet and Income Statement, one at a time, as a sheet under the top bar.
  *
- * BS layout:  Left = Assets         | Right = Liabilities + Equity
- * PL layout:  Left = Expenses (+NI) | Right = Revenues (+NL)
+ * Both are laid out as vertical statements (assets, then liabilities, then net assets), which is
+ * what a tall screen is good at. When a statement has more rows than fit, the body scrolls
+ * (drag, mouse wheel or arrow keys) while the tabs and the totals bar stay put.
  *
- * BS toggled with B key, PL toggled with P key.
+ * BS is toggled with the B key, PL with the P key.
  */
 export class Scorecard extends Phaser.GameObjects.Container {
-  // ---- layout constants ----
-  // Panel geometry: one panel at a time, wide and centred
-  private readonly panelWidth = 740;
-  private readonly panelX = 30;
-  private readonly halfWidth = 370; // panelWidth / 2
-  // Below this displayed canvas width (CSS px) the panel is drawn over the dialog box instead
-  private static readonly COMPACT_DISPLAY_WIDTH = 620;
-  private choiceOpen = false; // a choice / quiz prompt is on screen
-  private readonly basePanelY = 50;
-  private readonly lineHeight = 19;
-  private readonly itemPadding = 8;
-  private readonly minPanelScale = 0.5;
+  private sheet: Phaser.GameObjects.Container;
+  private sheetRect: Rect;
+  private bodyRect: Rect;
+  private tabBs: Tab;
+  private tabPl: Tab;
+  private summary: Phaser.GameObjects.Container;
+  private scroll: ScrollArea;
 
-  // Holds the panel bodies so the open one can be scaled down to fit above the dialog box
-  private panelGroup: Phaser.GameObjects.Container;
+  private balanceSheet?: BalanceSheet;
+  private incomeStatement?: IncomeStatement;
+  private activeTab: ReportTab | null = null;
 
-  // ---- BS panel ----
-  private bsBodyContainer: Phaser.GameObjects.Container;
-  private bsBackground: Phaser.GameObjects.Graphics;
-  private bsDivider: Phaser.GameObjects.Graphics;
-  private bsTitleText: Phaser.GameObjects.Text;
-  private bsLeftContainer: Phaser.GameObjects.Container;
-  private bsRightContainer: Phaser.GameObjects.Container;
-  private bsBalanceIndicator: Phaser.GameObjects.Text;
-  private lastBsHeight = 200;
-  private lastPlHeight = 0;
-  private isBsExpanded = false;
+  /** Called when the sheet opens, closes or switches tab. */
+  onChange?: () => void;
 
-  // ---- PL panel ----
-  private plBodyContainer: Phaser.GameObjects.Container;
-  private plBackground: Phaser.GameObjects.Graphics;
-  private plDivider: Phaser.GameObjects.Graphics;
-  private plTitleText: Phaser.GameObjects.Text;
-  private plLeftContainer: Phaser.GameObjects.Container;
-  private plRightContainer: Phaser.GameObjects.Container;
-  private isPlExpanded = false;
-
-  // ---- toggle buttons ----
-  private bsToggleBtn: Phaser.GameObjects.Container;
-  private bsToggleBtnBg: Phaser.GameObjects.Graphics;
-  private bsToggleBtnText: Phaser.GameObjects.Text;
-  private plToggleBtn: Phaser.GameObjects.Container;
-  private plToggleBtnBg: Phaser.GameObjects.Graphics;
-  private plToggleBtnText: Phaser.GameObjects.Text;
-
-  private totalTexts: Map<string, Phaser.GameObjects.Text> = new Map();
-  private onKeyB: () => void;
-  private onKeyP: () => void;
+  private onKeyB = (): void => this.toggle();
+  private onKeyP = (): void => this.togglePl();
+  private onKeyEscape = (): void => this.close();
+  private onKeyUp = (): void => this.scroll.scrollBy(-60);
+  private onKeyDown = (): void => this.scroll.scrollBy(60);
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    const lang = getLanguage();
+    this.sheetRect = getSheetRect();
+    const { x, y, w, h } = this.sheetRect;
+    this.bodyRect = {
+      x: x + 6,
+      y: y + HEADER_HEIGHT + SUMMARY_HEIGHT,
+      w: w - 12,
+      h: h - HEADER_HEIGHT - SUMMARY_HEIGHT - 8,
+    };
 
-    this.panelGroup = scene.add.container(0, 0);
-    this.add(this.panelGroup);
+    this.sheet = scene.add.container(0, 0);
+    this.add(this.sheet);
 
-    // === BS body ===
-    this.bsBodyContainer = scene.add.container(0, 0);
-    this.panelGroup.add(this.bsBodyContainer);
+    // Background; it also swallows taps so they do not reach the dialog / stage behind the sheet
+    const sheetBg = scene.add.graphics();
+    sheetBg.fillStyle(0x12122a, 1);
+    sheetBg.fillRoundedRect(x, y, w, h, 14);
+    sheetBg.lineStyle(2, 0x4a4a6a, 1);
+    sheetBg.strokeRoundedRect(x, y, w, h, 14);
+    sheetBg.setInteractive(new Phaser.Geom.Rectangle(x, y, w, h), Phaser.Geom.Rectangle.Contains);
+    this.sheet.add(sheetBg);
 
-    this.bsBackground = scene.add.graphics();
-    this.bsBodyContainer.add(this.bsBackground);
+    // Tabs (segmented control) and close button
+    this.tabBs = this.createTab(x + 10, y + 6, () => this.open('bs'));
+    this.tabPl = this.createTab(x + 10 + TAB_WIDTH + 6, y + 6, () => this.open('pl'));
+    this.createCloseButton(x + w - 10 - 32, y + 6);
 
-    this.bsDivider = scene.add.graphics();
-    this.bsBodyContainer.add(this.bsDivider);
+    // Totals bar under the tabs
+    this.summary = scene.add.container(0, 0);
+    this.sheet.add(this.summary);
 
-    this.bsTitleText = scene.add.text(
-      this.panelX + this.panelWidth / 2,
-      this.basePanelY + 12,
-      lang === 'ja' ? '\u8CB8\u501F\u5BFE\u7167\u8868 (B/S)' : 'Balance Sheet',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '15px',
-        color: '#ffd700',
-        fontStyle: 'bold',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    this.bsTitleText.setOrigin(0.5, 0);
-    this.bsBodyContainer.add(this.bsTitleText);
-
-    this.bsLeftContainer = scene.add.container(0, 0);
-    this.bsBodyContainer.add(this.bsLeftContainer);
-    this.bsRightContainer = scene.add.container(0, 0);
-    this.bsBodyContainer.add(this.bsRightContainer);
-
-    this.bsBalanceIndicator = scene.add.text(
-      this.panelX + this.panelWidth / 2,
-      this.basePanelY + 180,
-      '',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '11px',
-        color: '#22c55e',
-        fontStyle: 'bold',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    this.bsBalanceIndicator.setOrigin(0.5, 0);
-    this.bsBodyContainer.add(this.bsBalanceIndicator);
-
-    // === PL body ===
-    this.plBodyContainer = scene.add.container(0, 0);
-    this.panelGroup.add(this.plBodyContainer);
-
-    this.plBackground = scene.add.graphics();
-    this.plBodyContainer.add(this.plBackground);
-
-    this.plDivider = scene.add.graphics();
-    this.plBodyContainer.add(this.plDivider);
-
-    this.plTitleText = scene.add.text(
-      this.panelX + this.panelWidth / 2,
-      this.basePanelY + 12,
-      lang === 'ja' ? '\u640D\u76CA\u8A08\u7B97\u66F8 (P/L)' : 'Income Statement',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '15px',
-        color: '#ffd700',
-        fontStyle: 'bold',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    this.plTitleText.setOrigin(0.5, 0);
-    this.plBodyContainer.add(this.plTitleText);
-
-    this.plLeftContainer = scene.add.container(0, 0);
-    this.plBodyContainer.add(this.plLeftContainer);
-    this.plRightContainer = scene.add.container(0, 0);
-    this.plBodyContainer.add(this.plRightContainer);
-
-    // === Toggle buttons ===
-    this.bsToggleBtn = scene.add.container(0, 0);
-    this.bsToggleBtnBg = scene.add.graphics();
-    this.bsToggleBtnText = scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
-    this.bsToggleBtn.add(this.bsToggleBtnBg);
-    this.bsToggleBtn.add(this.bsToggleBtnText);
-    this.add(this.bsToggleBtn);
-
-    this.plToggleBtn = scene.add.container(0, 0);
-    this.plToggleBtnBg = scene.add.graphics();
-    this.plToggleBtnText = scene.add.text(0, 0, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
-    this.plToggleBtn.add(this.plToggleBtnBg);
-    this.plToggleBtn.add(this.plToggleBtnText);
-    this.add(this.plToggleBtn);
-
-    this.drawToggleButtons();
-
-    // Hit zones
-    const bsHitZone = scene.add.zone(GAME_WIDTH - 50, 30, 80, 30);
-    bsHitZone.setInteractive({ useHandCursor: true });
-    bsHitZone.on('pointerdown', () => this.toggle());
-    this.add(bsHitZone);
-
-    const plHitZone = scene.add.zone(GAME_WIDTH - 140, 30, 80, 30);
-    plHitZone.setInteractive({ useHandCursor: true });
-    plHitZone.on('pointerdown', () => this.togglePl());
-    this.add(plHitZone);
+    // Scrolling body, clipped to its rectangle
+    this.scroll = new ScrollArea(scene, this.bodyRect, this.sheet);
+    this.scroll.setEnabled(false);
 
     // Keyboard shortcuts
-    this.onKeyB = () => this.toggle();
-    this.onKeyP = () => this.togglePl();
     scene.input.keyboard?.on('keydown-B', this.onKeyB);
     scene.input.keyboard?.on('keydown-P', this.onKeyP);
+    scene.input.keyboard?.on('keydown-ESC', this.onKeyEscape);
+    scene.input.keyboard?.on('keydown-UP', this.onKeyUp);
+    scene.input.keyboard?.on('keydown-DOWN', this.onKeyDown);
 
-    this.setDepth(DEPTH.UI_PANEL);
+    this.setDepth(DEPTH.DIALOG + 30);
     this.setScrollFactor(0);
     scene.add.existing(this);
 
-    scene.scale.on('resize', this.onResize, this);
-    scene.events.on(CHOICE_PANEL_SHOWN, this.onChoiceShown, this);
-    scene.events.on(CHOICE_PANEL_HIDDEN, this.onChoiceHidden, this);
-
-    // Start collapsed
-    this.bsBodyContainer.setVisible(false);
-    this.plBodyContainer.setVisible(false);
+    // Start closed
+    this.sheet.setVisible(false);
   }
 
   // =========================================================================
-  //  Toggle buttons
+  //  Sheet chrome: tabs, close button
   // =========================================================================
 
-  private drawToggleButtons(): void {
-    const btnWidth = 80;
-    const btnHeight = 28;
-    const bsBtnX = GAME_WIDTH - btnWidth - 10;
-    const plBtnX = bsBtnX - btnWidth - 10;
-    const btnY = 16;
+  private createTab(x: number, y: number, onTap: () => void): Tab {
+    const { scene } = this;
+    const container = scene.add.container(x, y);
+    const bg = scene.add.graphics();
+    const label = scene.add.text(TAB_WIDTH / 2, 16, '', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '14px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
+    });
+    label.setOrigin(0.5);
+    const zone = scene.add.zone(TAB_WIDTH / 2, 16, TAB_WIDTH, 40);
+    zone.setInteractive({ useHandCursor: true });
+    zone.on('pointerup', onTap);
+    container.add([bg, label, zone]);
+    this.sheet.add(container);
+    return { container, bg, label };
+  }
 
-    // BS button
-    this.bsToggleBtnBg.clear();
-    this.bsToggleBtnBg.fillStyle(0x1a1a2e, 0.9);
-    this.bsToggleBtnBg.fillRoundedRect(bsBtnX, btnY, btnWidth, btnHeight, 4);
-    this.bsToggleBtnBg.lineStyle(1, COLORS.ASSETS, 0.8);
-    this.bsToggleBtnBg.strokeRoundedRect(bsBtnX, btnY, btnWidth, btnHeight, 4);
+  private createCloseButton(x: number, y: number): void {
+    const { scene } = this;
+    const container = scene.add.container(x, y);
+    const bg = scene.add.graphics();
+    bg.fillStyle(0x2a2a4a, 1);
+    bg.fillRoundedRect(0, 0, 32, 32, 8);
+    const label = scene.add.text(16, 16, '✕', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '16px',
+      color: '#ffffff',
+      padding: { top: 4, bottom: 4 },
+    });
+    label.setOrigin(0.5);
+    const zone = scene.add.zone(16, 16, 44, 44);
+    zone.setInteractive({ useHandCursor: true });
+    zone.on('pointerup', () => this.close());
+    container.add([bg, label, zone]);
+    this.sheet.add(container);
+  }
 
-    const bsLabel = this.isBsExpanded ? 'BS \u2715' : 'BS \u25B6';
-    this.bsToggleBtnText.setText(bsLabel);
-    this.bsToggleBtnText.setPosition(bsBtnX + btnWidth / 2, btnY + btnHeight / 2);
-    this.bsToggleBtnText.setOrigin(0.5);
-
-    // PL button
-    this.plToggleBtnBg.clear();
-    this.plToggleBtnBg.fillStyle(0x1a1a2e, 0.9);
-    this.plToggleBtnBg.fillRoundedRect(plBtnX, btnY, btnWidth, btnHeight, 4);
-    this.plToggleBtnBg.lineStyle(1, COLORS.REVENUE, 0.8);
-    this.plToggleBtnBg.strokeRoundedRect(plBtnX, btnY, btnWidth, btnHeight, 4);
-
-    const plLabel = this.isPlExpanded ? 'PL \u2715' : 'PL \u25B6';
-    this.plToggleBtnText.setText(plLabel);
-    this.plToggleBtnText.setPosition(plBtnX + btnWidth / 2, btnY + btnHeight / 2);
-    this.plToggleBtnText.setOrigin(0.5);
+  private drawTab(tab: Tab, text: string, color: number, selected: boolean): void {
+    tab.bg.clear();
+    tab.bg.fillStyle(selected ? color : 0x1e1e38, selected ? 0.35 : 1);
+    tab.bg.fillRoundedRect(0, 0, TAB_WIDTH, 32, 8);
+    tab.bg.lineStyle(2, selected ? color : 0x3a3a5a, 1);
+    tab.bg.strokeRoundedRect(0, 0, TAB_WIDTH, 32, 8);
+    tab.label.setText(text);
+    tab.label.setColor(selected ? '#ffffff' : '#9aa0b5');
   }
 
   // =========================================================================
-  //  Panel background drawing
+  //  Rendering
   // =========================================================================
 
-  private drawPanelBg(
-    gfx: Phaser.GameObjects.Graphics,
-    divGfx: Phaser.GameObjects.Graphics,
-    height: number
+  private render(): void {
+    const lang = getLanguage();
+    this.drawTab(this.tabBs, lang === 'ja' ? '貸借対照表' : 'Balance Sheet', COLORS.ASSETS, this.activeTab === 'bs');
+    this.drawTab(this.tabPl, lang === 'ja' ? '損益計算書' : 'Income Statement', COLORS.REVENUE, this.activeTab === 'pl');
+
+    this.clearContainer(this.summary);
+    this.clearContainer(this.scroll.content);
+
+    let rows: SheetRow[] = [];
+    if (this.activeTab === 'bs' && this.balanceSheet) {
+      rows = this.buildBalanceSheetRows(this.balanceSheet, lang);
+      this.renderBalanceSummary(this.balanceSheet, lang);
+    } else if (this.activeTab === 'pl' && this.incomeStatement) {
+      rows = this.buildIncomeStatementRows(this.incomeStatement, lang);
+      this.renderIncomeSummary(this.incomeStatement, lang);
+    }
+
+    this.scroll.setContentHeight(this.renderRows(rows));
+  }
+
+  private buildBalanceSheetRows(bs: BalanceSheet, lang: string): SheetRow[] {
+    const ja = lang === 'ja';
+    const rows: SheetRow[] = [];
+    const name = (item: { nameJa: string; name: string }): string => (ja ? item.nameJa : item.name);
+
+    rows.push({ kind: 'header', label: ja ? '資産の部' : 'Assets', color: TINT.assets });
+    for (const a of bs.assets.filter(a => a.balance !== 0)) {
+      rows.push({ kind: 'item', label: name(a), amount: a.balance, color: TINT.assets });
+    }
+    rows.push({ kind: 'total', label: ja ? '資産合計' : 'Total Assets', amount: bs.totalAssets, color: TINT.assets });
+
+    rows.push({ kind: 'header', label: ja ? '負債の部' : 'Liabilities', color: TINT.liabilities });
+    for (const l of bs.liabilities.filter(l => l.balance !== 0)) {
+      rows.push({ kind: 'item', label: name(l), amount: l.balance, color: TINT.liabilities });
+    }
+    rows.push({ kind: 'total', label: ja ? '負債合計' : 'Total Liabilities', amount: bs.totalLiabilities, color: TINT.liabilities });
+
+    rows.push({ kind: 'header', label: ja ? '純資産の部' : 'Equity', color: TINT.equity });
+    // The net income row is drawn separately below (with its own colour), so skip the synthetic one
+    for (const e of bs.equity.filter(e => e.balance !== 0 && !e.isNetIncome)) {
+      rows.push({ kind: 'item', label: name(e), amount: e.balance, color: TINT.equity });
+    }
+    if (bs.netIncome !== 0) {
+      rows.push({
+        kind: 'item',
+        label: ja ? '当期純利益' : 'Net Income',
+        amount: bs.netIncome,
+        color: bs.netIncome > 0 ? TINT.good : TINT.bad,
+      });
+    }
+    rows.push({ kind: 'total', label: ja ? '純資産合計' : 'Total Equity', amount: bs.totalEquity, color: TINT.equity });
+
+    rows.push({
+      kind: 'grand',
+      label: ja ? '負債・純資産合計' : 'Liabilities + Equity',
+      amount: bs.totalLiabilities + bs.totalEquity,
+      color: '#ffd700',
+    });
+    return rows;
+  }
+
+  private buildIncomeStatementRows(is: IncomeStatement, lang: string): SheetRow[] {
+    const ja = lang === 'ja';
+    const rows: SheetRow[] = [];
+    const name = (item: { nameJa: string; name: string }): string => (ja ? item.nameJa : item.name);
+
+    rows.push({ kind: 'header', label: ja ? '収益の部' : 'Revenues', color: TINT.revenue });
+    for (const r of is.revenues.filter(r => r.balance !== 0)) {
+      rows.push({ kind: 'item', label: name(r), amount: r.balance, color: TINT.revenue });
+    }
+    rows.push({ kind: 'total', label: ja ? '収益合計' : 'Total Revenue', amount: is.totalRevenue, color: TINT.revenue });
+
+    rows.push({ kind: 'header', label: ja ? '費用の部' : 'Expenses', color: TINT.expenses });
+    for (const e of is.expenses.filter(e => e.balance !== 0)) {
+      rows.push({ kind: 'item', label: name(e), amount: e.balance, color: TINT.expenses });
+    }
+    rows.push({ kind: 'total', label: ja ? '費用合計' : 'Total Expenses', amount: is.totalExpenses, color: TINT.expenses });
+
+    const label = is.netIncome >= 0
+      ? (ja ? '当期純利益' : 'Net Income')
+      : (ja ? '当期純損失' : 'Net Loss');
+    rows.push({ kind: 'grand', label, amount: is.netIncome, color: is.netIncome >= 0 ? TINT.good : TINT.bad });
+    return rows;
+  }
+
+  /** Draw the rows top to bottom inside the scrolling content; returns their total height. */
+  private renderRows(rows: SheetRow[]): number {
+    const { scene } = this;
+    const left = this.bodyRect.x + 10;
+    const right = this.bodyRect.x + this.bodyRect.w - 10;
+    let y = this.bodyRect.y + 4;
+
+    for (const row of rows) {
+      const height = ROW_HEIGHT[row.kind];
+      const center = y + height / 2;
+
+      if (row.kind === 'header') {
+        const bar = scene.add.graphics();
+        bar.fillStyle(Phaser.Display.Color.HexStringToColor(row.color).color, 1);
+        bar.fillRoundedRect(left - 2, center - 8, 4, 18, 2);
+        this.scroll.content.add(bar);
+        this.scroll.content.add(this.makeText(left + 8, center + 2, row.label, 15, row.color, true, 0));
+      } else {
+        const bold = row.kind !== 'item';
+        if (row.kind === 'total' || row.kind === 'grand') {
+          const line = scene.add.graphics();
+          const color = row.kind === 'grand' ? 0xffd700 : Phaser.Display.Color.HexStringToColor(row.color).color;
+          line.lineStyle(1, color, row.kind === 'grand' ? 0.8 : 0.4);
+          line.lineBetween(left, y + 1, right, y + 1);
+          if (row.kind === 'grand') {
+            line.lineBetween(left, y + 4, right, y + 4);
+          }
+          this.scroll.content.add(line);
+        }
+        const indent = row.kind === 'item' ? 12 : 0;
+        const size = row.kind === 'item' ? 15 : 16;
+        const labelColor = row.kind === 'item' ? '#eeeeee' : row.kind === 'grand' ? '#ffd700' : '#ffffff';
+        const amountText = this.makeText(right, center + 2, formatMoney(row.amount ?? 0), size, row.color, true, 1);
+        const labelText = this.makeText(left + indent, center + 2, row.label, size, labelColor, bold, 0);
+        // A long account name must never run into its amount
+        const room = right - left - indent - amountText.width - 10;
+        if (labelText.width > room && room > 0) {
+          labelText.setScale(room / labelText.width);
+        }
+        this.scroll.content.add(amountText);
+        this.scroll.content.add(labelText);
+      }
+      y += height;
+    }
+    return y + 8 - this.bodyRect.y;
+  }
+
+  private makeText(
+    x: number,
+    y: number,
+    text: string,
+    size: number,
+    color: string,
+    bold: boolean,
+    originX: number
+  ): Phaser.GameObjects.Text {
+    const label = this.scene.add.text(x, y, text, {
+      fontFamily: FONT_FAMILY,
+      fontSize: `${size}px`,
+      color,
+      fontStyle: bold ? 'bold' : 'normal',
+      padding: { top: 4, bottom: 4 },
+    });
+    label.setOrigin(originX, 0.5);
+    return label;
+  }
+
+  // ---- Totals bar ---------------------------------------------------------
+
+  /** Three boxes and their operators, e.g. Assets = Liabilities + Equity. */
+  private renderSummary(
+    boxes: { label: string; amount: number; color: string }[],
+    operators: string[],
+    footer: { text: string; color: string }
   ): void {
-    gfx.clear();
-    gfx.fillStyle(0x1a1a2e, 0.92);
-    gfx.fillRoundedRect(this.panelX, this.basePanelY, this.panelWidth, height, 8);
-    gfx.lineStyle(2, 0x4a4a6a);
-    gfx.strokeRoundedRect(this.panelX, this.basePanelY, this.panelWidth, height, 8);
+    const { scene } = this;
+    const { x, y, w } = this.sheetRect;
+    const top = y + HEADER_HEIGHT;
+    const operatorWidth = 20;
+    const boxWidth = (w - 20 - operatorWidth * 2) / 3;
 
-    // Title underline
-    gfx.lineStyle(1, 0xffd700, 0.3);
-    gfx.lineBetween(
-      this.panelX + 10, this.basePanelY + 30,
-      this.panelX + this.panelWidth - 10, this.basePanelY + 30
-    );
+    boxes.forEach((box, index) => {
+      const bx = x + 10 + index * (boxWidth + operatorWidth);
+      const bg = scene.add.graphics();
+      bg.fillStyle(0x1e1e38, 1);
+      bg.fillRoundedRect(bx, top, boxWidth, 46, 8);
+      bg.lineStyle(1, Phaser.Display.Color.HexStringToColor(box.color).color, 0.7);
+      bg.strokeRoundedRect(bx, top, boxWidth, 46, 8);
+      this.summary.add(bg);
 
-    // Center vertical divider
-    divGfx.clear();
-    const divX = this.panelX + this.halfWidth;
-    divGfx.lineStyle(1, 0x4a4a6a, 0.6);
-    divGfx.lineBetween(divX, this.basePanelY + 32, divX, this.basePanelY + height - 8);
+      this.summary.add(this.makeText(bx + boxWidth / 2, top + 13, box.label, 12, '#aab0c8', false, 0.5));
+      const amount = this.makeText(bx + boxWidth / 2, top + 32, formatMoney(box.amount), 15, box.color, true, 0.5);
+      // Large amounts shrink to stay inside their box
+      if (amount.width > boxWidth - 8) {
+        amount.setScale((boxWidth - 8) / amount.width);
+      }
+      this.summary.add(amount);
+
+      if (index < operators.length) {
+        this.summary.add(this.makeText(bx + boxWidth + operatorWidth / 2, top + 24, operators[index], 16, '#aab0c8', true, 0.5));
+      }
+    });
+
+    this.summary.add(this.makeText(x + w / 2, top + 60, footer.text, 12, footer.color, true, 0.5));
   }
 
-  // =========================================================================
-  //  Helper: add elements into a column container
-  // =========================================================================
+  private renderBalanceSummary(bs: BalanceSheet, lang: string): void {
+    const ja = lang === 'ja';
+    this.renderSummary(
+      [
+        { label: ja ? '資産' : 'Assets', amount: bs.totalAssets, color: TINT.assets },
+        { label: ja ? '負債' : 'Liabilities', amount: bs.totalLiabilities, color: TINT.liabilities },
+        { label: ja ? '純資産' : 'Equity', amount: bs.totalEquity, color: TINT.equity },
+      ],
+      ['＝', '＋'],
+      bs.isBalanced
+        ? { text: ja ? '✓ 貸借一致' : '✓ Balanced', color: TINT.good }
+        : { text: ja ? '✗ 貸借不一致' : '✗ Imbalanced', color: TINT.bad }
+    );
+  }
+
+  private renderIncomeSummary(is: IncomeStatement, lang: string): void {
+    const ja = lang === 'ja';
+    this.renderSummary(
+      [
+        { label: ja ? '収益' : 'Revenue', amount: is.totalRevenue, color: TINT.revenue },
+        { label: ja ? '費用' : 'Expenses', amount: is.totalExpenses, color: TINT.expenses },
+        {
+          label: is.netIncome >= 0 ? (ja ? '純利益' : 'Net Income') : (ja ? '純損失' : 'Net Loss'),
+          amount: is.netIncome,
+          color: is.netIncome >= 0 ? TINT.good : TINT.bad,
+        },
+      ],
+      ['－', '＝'],
+      { text: ja ? '収益 － 費用 ＝ 当期純利益' : 'Revenue − Expenses = Net Income', color: '#aab0c8' }
+    );
+  }
 
   private clearContainer(container: Phaser.GameObjects.Container): void {
     const children = container.getAll();
@@ -281,503 +408,86 @@ export class Scorecard extends Phaser.GameObjects.Container {
     }
   }
 
-  /** Bold colored section header, e.g. "【資産の部】" */
-  private addHeader(
-    container: Phaser.GameObjects.Container,
-    text: string,
-    colX: number,
-    y: number,
-    color: number
-  ): void {
-    const t = this.scene.add.text(colX + this.itemPadding, y, text, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: Phaser.Display.Color.IntegerToColor(color).rgba,
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
-    container.add(t);
-  }
-
-  /** Normal item row: label left-aligned, amount right-aligned within column */
-  private addItem(
-    container: Phaser.GameObjects.Container,
-    label: string,
-    amount: number,
-    colX: number,
-    y: number,
-    color: number
-  ): void {
-    const labelText = this.scene.add.text(colX + this.itemPadding + 8, y, label, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#eeeeee',
-      padding: { top: 4, bottom: 4 },
-    });
-    container.add(labelText);
-
-    const amountText = this.scene.add.text(
-      colX + this.halfWidth - this.itemPadding - 5,
-      y,
-      formatMoney(amount),
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '13px',
-        fontStyle: 'bold',
-        color: Phaser.Display.Color.IntegerToColor(color).rgba,
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    amountText.setOrigin(1, 0);
-    container.add(amountText);
-
-    // A long account name must never run into its amount
-    const room = this.halfWidth - this.itemPadding * 2 - 13 - amountText.width - 6;
-    if (labelText.width > room && room > 0) {
-      labelText.setScale(room / labelText.width);
-    }
-  }
-
-  /** Total row with separator line above */
-  private addTotal(
-    container: Phaser.GameObjects.Container,
-    label: string,
-    amount: number,
-    colX: number,
-    y: number,
-    color: number,
-    key?: string,
-    bold = true
-  ): void {
-    const line = this.scene.add.graphics();
-    line.lineStyle(1, color, 0.4);
-    line.lineBetween(
-      colX + this.itemPadding, y - 3,
-      colX + this.halfWidth - this.itemPadding, y - 3
-    );
-    container.add(line);
-
-    const labelText = this.scene.add.text(colX + this.itemPadding, y, label, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#ffffff',
-      fontStyle: bold ? 'bold' : 'normal',
-      padding: { top: 4, bottom: 4 },
-    });
-    container.add(labelText);
-
-    const amountText = this.scene.add.text(
-      colX + this.halfWidth - this.itemPadding - 5,
-      y,
-      formatMoney(amount),
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '13px',
-        color: Phaser.Display.Color.IntegerToColor(color).rgba,
-        fontStyle: bold ? 'bold' : 'normal',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    amountText.setOrigin(1, 0);
-    container.add(amountText);
-
-    if (key) {
-      this.totalTexts.set(key, amountText);
-    }
-  }
-
-  /** Double-line grand total (bottom of T-account) */
-  private addGrandTotal(
-    container: Phaser.GameObjects.Container,
-    label: string,
-    amount: number,
-    colX: number,
-    y: number
-  ): void {
-    // Double line
-    const dblLine = this.scene.add.graphics();
-    dblLine.lineStyle(1, 0xffd700, 0.6);
-    dblLine.lineBetween(colX + this.itemPadding, y - 5, colX + this.halfWidth - this.itemPadding, y - 5);
-    dblLine.lineBetween(colX + this.itemPadding, y - 2, colX + this.halfWidth - this.itemPadding, y - 2);
-    container.add(dblLine);
-
-    const labelText = this.scene.add.text(colX + this.itemPadding, y, label, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
-    container.add(labelText);
-
-    const amountText = this.scene.add.text(
-      colX + this.halfWidth - this.itemPadding - 5,
-      y,
-      formatMoney(amount),
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '13px',
-        color: '#ffd700',
-        fontStyle: 'bold',
-        padding: { top: 4, bottom: 4 },
-      }
-    );
-    amountText.setOrigin(1, 0);
-    container.add(amountText);
-  }
-
   // =========================================================================
   //  Public API
   // =========================================================================
 
-  /**
-   * Update BS panel with new data (T-account: left=Assets, right=L+E)
-   */
+  /** Update the balance sheet data (drawn when its tab is open). */
   update(balanceSheet: BalanceSheet): void {
-    const lang = getLanguage();
-    this.bsTitleText.setText(lang === 'ja' ? '貸借対照表 (B/S)' : 'Balance Sheet');
-    this.clearContainer(this.bsLeftContainer);
-    this.clearContainer(this.bsRightContainer);
-    this.totalTexts.clear();
-
-    const contentY = this.basePanelY + 37;
-    const leftX = this.panelX;
-    const rightX = this.panelX + this.halfWidth;
-
-    // ---- Left column: Assets ----
-    let leftY = contentY;
-    this.addHeader(
-      this.bsLeftContainer,
-      lang === 'ja' ? '\u3010\u8CC7\u7523\u306E\u90E8\u3011' : 'Assets',
-      leftX, leftY, COLORS.ASSETS
-    );
-    leftY += this.lineHeight;
-
-    for (const a of balanceSheet.assets.filter(a => a.balance !== 0)) {
-      this.addItem(
-        this.bsLeftContainer,
-        lang === 'ja' ? a.nameJa : a.name,
-        a.balance, leftX, leftY, COLORS.ASSETS
-      );
-      leftY += this.lineHeight;
-    }
-    leftY += 4;
-    this.addTotal(
-      this.bsLeftContainer,
-      lang === 'ja' ? '\u8CC7\u7523\u5408\u8A08' : 'Total Assets',
-      balanceSheet.totalAssets, leftX, leftY, COLORS.ASSETS, 'totalAssets', false
-    );
-    leftY += this.lineHeight + 4;
-
-    // ---- Right column: Liabilities + Equity ----
-    let rightY = contentY;
-
-    // Liabilities
-    this.addHeader(
-      this.bsRightContainer,
-      lang === 'ja' ? '\u3010\u8CA0\u50B5\u306E\u90E8\u3011' : 'Liabilities',
-      rightX, rightY, COLORS.LIABILITIES
-    );
-    rightY += this.lineHeight;
-
-    for (const l of balanceSheet.liabilities.filter(l => l.balance !== 0)) {
-      this.addItem(
-        this.bsRightContainer,
-        lang === 'ja' ? l.nameJa : l.name,
-        l.balance, rightX, rightY, COLORS.LIABILITIES
-      );
-      rightY += this.lineHeight;
-    }
-    rightY += 4;
-    this.addTotal(
-      this.bsRightContainer,
-      lang === 'ja' ? '\u8CA0\u50B5\u5408\u8A08' : 'Total Liabilities',
-      balanceSheet.totalLiabilities, rightX, rightY, COLORS.LIABILITIES, 'totalLiabilities', false
-    );
-    rightY += this.lineHeight + 6;
-
-    // Equity
-    this.addHeader(
-      this.bsRightContainer,
-      lang === 'ja' ? '\u3010\u7D14\u8CC7\u7523\u306E\u90E8\u3011' : 'Equity',
-      rightX, rightY, COLORS.EQUITY
-    );
-    rightY += this.lineHeight;
-
-    // The net income row is drawn separately below (with its own colour), so skip the synthetic one
-    for (const e of balanceSheet.equity.filter(e => e.balance !== 0 && !e.isNetIncome)) {
-      this.addItem(
-        this.bsRightContainer,
-        lang === 'ja' ? e.nameJa : e.name,
-        e.balance, rightX, rightY, COLORS.EQUITY
-      );
-      rightY += this.lineHeight;
-    }
-    if (balanceSheet.netIncome !== 0) {
-      const niLabel = lang === 'ja' ? '当期純利益' : 'Net Income';
-      const niColor = balanceSheet.netIncome > 0 ? 0x22c55e : 0xef4444;
-      this.addItem(
-        this.bsRightContainer,
-        niLabel,
-        balanceSheet.netIncome, rightX, rightY, niColor
-      );
-      rightY += this.lineHeight;
-    }
-    rightY += 4;
-    this.addTotal(
-      this.bsRightContainer,
-      lang === 'ja' ? '\u7D14\u8CC7\u7523\u5408\u8A08' : 'Total Equity',
-      balanceSheet.totalEquity, rightX, rightY, COLORS.EQUITY, 'totalEquity', false
-    );
-    rightY += this.lineHeight + 4;
-
-    // ---- Grand totals (bottom of T-account) ----
-    const grandY = Math.max(leftY, rightY) + 2;
-    this.addGrandTotal(
-      this.bsLeftContainer,
-      lang === 'ja' ? '\u5408\u8A08' : 'Total',
-      balanceSheet.totalAssets, leftX, grandY
-    );
-    this.addGrandTotal(
-      this.bsRightContainer,
-      lang === 'ja' ? '\u5408\u8A08' : 'Total',
-      balanceSheet.totalLiabilities + balanceSheet.totalEquity, rightX, grandY
-    );
-
-    // Balance indicator
-    const indicatorY = grandY + this.lineHeight + 4;
-    if (balanceSheet.isBalanced) {
-      this.bsBalanceIndicator.setText(lang === 'ja' ? '\u2713 \u8CB8\u501F\u4E00\u81F4' : '\u2713 Balanced');
-      this.bsBalanceIndicator.setColor('#22c55e');
-    } else {
-      this.bsBalanceIndicator.setText(lang === 'ja' ? '\u2717 \u8CB8\u501F\u4E0D\u4E00\u81F4' : '\u2717 Imbalanced');
-      this.bsBalanceIndicator.setColor('#ef4444');
-    }
-    this.bsBalanceIndicator.setY(indicatorY);
-
-    // Resize background
-    this.lastBsHeight = indicatorY - this.basePanelY + 22;
-    this.drawPanelBg(this.bsBackground, this.bsDivider, this.lastBsHeight);
-    this.fitPanels();
-
+    this.balanceSheet = balanceSheet;
+    if (this.activeTab === 'bs') this.render();
   }
 
-  /**
-   * Update PL data without expanding the panel
-   */
+  /** Update the income statement data without opening the sheet. */
   updateIncomeStatement(incomeStatement: IncomeStatement): void {
-    this.renderIncomeStatement(incomeStatement);
+    this.incomeStatement = incomeStatement;
+    if (this.activeTab === 'pl') this.render();
   }
 
-  /**
-   * Update PL data and expand the panel
-   */
+  /** Update the income statement data and open its tab. */
   showIncomeStatement(incomeStatement: IncomeStatement): void {
-    this.renderIncomeStatement(incomeStatement);
-    if (!this.isPlExpanded) {
-      this.togglePl();
-    }
+    this.incomeStatement = incomeStatement;
+    this.open('pl');
   }
 
-  // =========================================================================
-  //  PL rendering (T-account: left=Expenses, right=Revenues)
-  // =========================================================================
-
-  private renderIncomeStatement(is: IncomeStatement): void {
-    const lang = getLanguage();
-    this.plTitleText.setText(lang === 'ja' ? '損益計算書 (P/L)' : 'Income Statement');
-    this.clearContainer(this.plLeftContainer);
-    this.clearContainer(this.plRightContainer);
-
-    const contentY = this.basePanelY + 37;
-    const leftX = this.panelX;
-    const rightX = this.panelX + this.halfWidth;
-
-    // ---- Left column: Expenses (debit side) ----
-    let leftY = contentY;
-    this.addHeader(
-      this.plLeftContainer,
-      lang === 'ja' ? '\u3010\u8CBB\u7528\u306E\u90E8\u3011' : 'Expenses',
-      leftX, leftY, COLORS.EXPENSES
-    );
-    leftY += this.lineHeight;
-
-    for (const exp of is.expenses.filter(e => e.balance !== 0)) {
-      this.addItem(
-        this.plLeftContainer,
-        lang === 'ja' ? exp.nameJa : exp.name,
-        exp.balance, leftX, leftY, COLORS.EXPENSES
-      );
-      leftY += this.lineHeight;
-    }
-
-    leftY += 4;
-    this.addTotal(
-      this.plLeftContainer,
-      lang === 'ja' ? '費用合計' : 'Total Expenses',
-      is.totalExpenses, leftX, leftY, COLORS.EXPENSES, 'totalExpenses', false
-    );
-    leftY += this.lineHeight + 4;
-
-    // ---- Right column: Revenues (credit side) ----
-    let rightY = contentY;
-    this.addHeader(
-      this.plRightContainer,
-      lang === 'ja' ? '\u3010\u53CE\u76CA\u306E\u90E8\u3011' : 'Revenues',
-      rightX, rightY, COLORS.REVENUE
-    );
-    rightY += this.lineHeight;
-
-    for (const rev of is.revenues.filter(r => r.balance !== 0)) {
-      this.addItem(
-        this.plRightContainer,
-        lang === 'ja' ? rev.nameJa : rev.name,
-        rev.balance, rightX, rightY, COLORS.REVENUE
-      );
-      rightY += this.lineHeight;
-    }
-
-    rightY += 4;
-    this.addTotal(
-      this.plRightContainer,
-      lang === 'ja' ? '収益合計' : 'Total Revenue',
-      is.totalRevenue, rightX, rightY, COLORS.REVENUE, 'totalRevenue', false
-    );
-    rightY += this.lineHeight + 4;
-
-    // ---- Net income formula (full-width, below both columns) ----
-    const formulaY = Math.max(leftY, rightY) + 2;
-    const formulaLine = this.scene.add.graphics();
-    formulaLine.lineStyle(1, 0xffd700, 0.6);
-    formulaLine.lineBetween(leftX + this.itemPadding, formulaY - 5, leftX + this.halfWidth * 2 - this.itemPadding, formulaY - 5);
-    formulaLine.lineBetween(leftX + this.itemPadding, formulaY - 2, leftX + this.halfWidth * 2 - this.itemPadding, formulaY - 2);
-    this.plLeftContainer.add(formulaLine);
-
-    const niColor = is.netIncome >= 0 ? '#22c55e' : '#ef4444';
-    const niLabel = is.netIncome >= 0
-      ? (lang === 'ja' ? '当期純利益' : 'Net Income')
-      : (lang === 'ja' ? '当期純損失' : 'Net Loss');
-    const formulaText = lang === 'ja'
-      ? `${niLabel}  ${formatMoney(is.totalRevenue)} - ${formatMoney(is.totalExpenses)} = ${formatMoney(is.netIncome)}`
-      : `${niLabel}  ${formatMoney(is.totalRevenue)} - ${formatMoney(is.totalExpenses)} = ${formatMoney(is.netIncome)}`;
-
-    const formulaLabel = this.scene.add.text(leftX + this.itemPadding, formulaY, formulaText, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: niColor,
-      fontStyle: 'bold',
-      padding: { top: 4, bottom: 4 },
-    });
-    this.plLeftContainer.add(formulaLabel);
-
-    const bottomY = formulaY + this.lineHeight + 8;
-
-    // Resize background
-    const plHeight = bottomY - this.basePanelY + 8;
-    this.drawPanelBg(this.plBackground, this.plDivider, plHeight);
-    this.lastPlHeight = plHeight;
-    this.fitPanels();
-  }
-
-  // =========================================================================
-  //  Toggle / positioning
-  // =========================================================================
-
-  /** Show the balance sheet; it replaces the income statement if that is open. */
+  /** Show the balance sheet; closes it if it is already open. */
   toggle(): void {
-    this.isBsExpanded = !this.isBsExpanded;
-    if (this.isBsExpanded) {
-      this.isPlExpanded = false;
+    if (this.activeTab === 'bs') {
+      this.close();
+    } else {
+      this.open('bs');
     }
-    this.syncPanels();
   }
 
-  /** Show the income statement; it replaces the balance sheet if that is open. */
+  /** Show the income statement; closes it if it is already open. */
   togglePl(): void {
-    this.isPlExpanded = !this.isPlExpanded;
-    if (this.isPlExpanded) {
-      this.isBsExpanded = false;
+    if (this.activeTab === 'pl') {
+      this.close();
+    } else {
+      this.open('pl');
     }
-    this.syncPanels();
   }
 
-  private syncPanels(): void {
-    this.bsBodyContainer.setVisible(this.isBsExpanded);
-    this.plBodyContainer.setVisible(this.isPlExpanded);
-    this.fitPanels();
-    this.drawToggleButtons();
+  private open(tab: ReportTab): void {
+    const wasOpen = this.activeTab !== null;
+    if (this.activeTab !== tab) {
+      this.scroll.scrollTo(0);
+    }
+    this.activeTab = tab;
+    this.scroll.setEnabled(true);
+    this.sheet.setVisible(true);
+    this.render();
+    if (!wasOpen) {
+      this.sheet.setAlpha(0);
+      this.scene.tweens.add({ targets: this.sheet, alpha: 1, duration: 140 });
+    }
+    this.onChange?.();
   }
 
-  /** Small displayed canvas (phones, narrow windows): the panel is drawn over the dialog box. */
-  private isCompactDisplay(): boolean {
-    return this.scene.scale.displaySize.width < Scorecard.COMPACT_DISPLAY_WIDTH;
-  }
-
-  private onChoiceShown(): void {
-    this.choiceOpen = true;
-    this.fitPanels();
-  }
-
-  private onChoiceHidden(): void {
-    this.choiceOpen = false;
-    this.fitPanels();
-  }
-
-  private onResize(): void {
-    this.fitPanels();
-  }
-
-  /**
-   * Keep the open panels on screen. Normally they must stay above the VN dialog box; on a small
-   * display they are drawn over it instead (one panel at a time, so it gets the whole height).
-   * If they are still too tall (many accounts) the group is scaled down: the top edge stays at
-   * basePanelY and the horizontal centre stays put.
-   */
-  private fitPanels(): void {
-    const compact = this.isCompactDisplay();
-    const total = this.isBsExpanded ? this.lastBsHeight : this.isPlExpanded ? this.lastPlHeight : 0;
-    // A choice / quiz prompt sits in the lower half, so the panels shrink to stay above it
-    const bottom = this.choiceOpen ? VN_CHOICE_TOP : compact ? GAME_HEIGHT - 12 : VN_DIALOG_TOP;
-    const available = bottom - this.basePanelY;
-    const scale = total > available ? Math.max(this.minPanelScale, available / total) : 1;
-
-    this.setDepth(compact ? DEPTH.DIALOG + 5 : DEPTH.UI_PANEL);
-    this.panelGroup.setScale(scale);
-    this.panelGroup.setPosition(
-      (GAME_WIDTH / 2) * (1 - scale),
-      this.basePanelY * (1 - scale)
-    );
+  close(): void {
+    if (this.activeTab === null) return;
+    this.activeTab = null;
+    this.scroll.setEnabled(false);
+    this.sheet.setVisible(false);
+    this.onChange?.();
   }
 
   get bsExpanded(): boolean {
-    return this.isBsExpanded;
+    return this.activeTab === 'bs';
   }
 
   get plExpanded(): boolean {
-    return this.isPlExpanded;
-  }
-
-  highlightTotal(key: string): void {
-    const text = this.totalTexts.get(key);
-    if (text) {
-      this.scene.tweens.add({
-        targets: text,
-        scaleX: 1.2,
-        scaleY: 1.2,
-        duration: 200,
-        yoyo: true,
-        repeat: 1,
-      });
-    }
+    return this.activeTab === 'pl';
   }
 
   destroy(): void {
     if (this.scene) {
       this.scene.input.keyboard?.off('keydown-B', this.onKeyB);
       this.scene.input.keyboard?.off('keydown-P', this.onKeyP);
-      this.scene.scale.off('resize', this.onResize, this);
-      this.scene.events.off(CHOICE_PANEL_SHOWN, this.onChoiceShown, this);
-      this.scene.events.off(CHOICE_PANEL_HIDDEN, this.onChoiceHidden, this);
+      this.scene.input.keyboard?.off('keydown-ESC', this.onKeyEscape);
+      this.scene.input.keyboard?.off('keydown-UP', this.onKeyUp);
+      this.scene.input.keyboard?.off('keydown-DOWN', this.onKeyDown);
+      this.scroll.destroy();
     }
     super.destroy();
   }

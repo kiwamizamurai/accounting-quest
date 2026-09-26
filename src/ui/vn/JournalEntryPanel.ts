@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, FONT_FAMILY } from '../../config/constants';
+import { COLORS, DEPTH, FONT_FAMILY } from '../../config/constants';
+import { HUD_HEIGHT, VIEW_WIDTH, getViewHeight } from '../../config/layout';
+import { ScrollArea } from '../components/ScrollArea';
 import { AccountType } from '../../models/Account';
 import { t } from '../../i18n';
 import { formatMoney } from '../../utils/MoneyFormatter';
@@ -70,7 +72,8 @@ function createMiniButton(
   h: number,
   text: string,
   fontSize: number,
-  onClick: () => void
+  onClick: () => void,
+  isBlocked?: () => boolean
 ): MiniButton {
   const container = scene.add.container(x, y);
   const bg = scene.add.graphics();
@@ -95,9 +98,9 @@ function createMiniButton(
     bg.clear();
     const fill = !enabled ? 0x33334a : hover ? COLORS.BUTTON_HOVER : filled ? 0x2f3f66 : COLORS.BUTTON;
     bg.fillStyle(fill, 1);
-    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 4);
+    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
     bg.lineStyle(2, hover && enabled ? COLORS.ASSETS : border, 1);
-    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 4);
+    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
     label.setAlpha(enabled ? 1 : 0.5);
   };
   draw();
@@ -113,7 +116,7 @@ function createMiniButton(
     draw();
   });
   container.on('pointerup', () => {
-    if (enabled) {
+    if (enabled && !isBlocked?.()) {
       onClick();
     }
   });
@@ -139,12 +142,17 @@ function createMiniButton(
 /**
  * Journal entry input: the player fills in the debit and credit lines of an entry
  * (account picked from a list grouped by type, amount typed on a keypad) and submits it.
+ *
+ * The form is one vertical page under the top bar: the situation on top, then the debit lines,
+ * then the credit lines, and the action buttons at the bottom where the thumb rests. Picking an
+ * account or typing an amount opens a sheet that rises from the bottom.
  */
 export class JournalEntryPanel extends Phaser.GameObjects.Container {
   private config!: JournalEntryPanelConfig;
   private rows: Row[] = [];
   private panelBody?: Phaser.GameObjects.Container;
   private popup?: Phaser.GameObjects.Container;
+  private popupScroll?: ScrollArea;
   private noteText?: Phaser.GameObjects.Text;
   private submitBtn?: MiniButton;
   private sideButtons: MiniButton[] = []; // hint / reset, hidden once the entry is submitted
@@ -184,84 +192,91 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
 
   private build(): void {
     const { scene } = this;
+    const height = getViewHeight();
+    const top = HUD_HEIGHT;
     const body = scene.add.container(0, 0);
     this.panelBody = body;
     this.add(body);
 
-    // Dim everything behind and swallow clicks
-    const overlay = scene.add.graphics();
-    overlay.fillStyle(0x000000, 0.82);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT), Phaser.Geom.Rectangle.Contains);
-    body.add(overlay);
-
-    const box = scene.add.graphics();
-    box.fillStyle(0x1a1a2e, 0.98);
-    box.fillRoundedRect(24, 16, GAME_WIDTH - 48, GAME_HEIGHT - 32, 8);
-    box.lineStyle(2, 0x4a4a6a, 1);
-    box.strokeRoundedRect(24, 16, GAME_WIDTH - 48, GAME_HEIGHT - 32, 8);
-    body.add(box);
+    // A page under the top bar; it swallows taps so they do not reach the scene behind
+    const page = scene.add.graphics();
+    page.fillStyle(0x12122a, 1);
+    page.fillRect(0, top, VIEW_WIDTH, height - top);
+    page.setInteractive(new Phaser.Geom.Rectangle(0, top, VIEW_WIDTH, height - top), Phaser.Geom.Rectangle.Contains);
+    body.add(page);
 
     body.add(
-      scene.add
-        .text(GAME_WIDTH / 2, 38, t('je.title'), {
-          fontFamily: FONT,
-          fontSize: '20px',
-          color: '#ffd700',
-          fontStyle: 'bold',
-          padding: { top: 4, bottom: 4 },
-        })
-        .setOrigin(0.5)
-    );
-
-    body.add(
-      scene.add.text(44, 62, this.config.prompt, {
+      scene.add.text(16, top + 10, t('je.title'), {
         fontFamily: FONT,
-        fontSize: '15px',
-        color: '#ffffff',
-        wordWrap: { width: GAME_WIDTH - 88, useAdvancedWrap: true },
-        lineSpacing: 4,
-        padding: { top: 2, bottom: 2 },
+        fontSize: '18px',
+        color: '#ffd700',
+        fontStyle: 'bold',
+        padding: { top: 4, bottom: 4 },
       })
     );
 
-    // Hint / answer line (filled in later)
-    this.noteText = scene.add.text(44, 122, '', {
+    // The situation, on a card
+    const promptText = scene.add.text(24, top + 50, this.config.prompt, {
+      fontFamily: FONT,
+      fontSize: '15px',
+      color: '#ffffff',
+      wordWrap: { width: VIEW_WIDTH - 48, useAdvancedWrap: true },
+      lineSpacing: 5,
+      padding: { top: 2, bottom: 2 },
+    });
+    const cardHeight = promptText.height + 20;
+    const card = scene.add.graphics();
+    card.fillStyle(0x1e1e38, 1);
+    card.fillRoundedRect(10, top + 42, VIEW_WIDTH - 20, cardHeight, 10);
+    card.lineStyle(1, 0x3a3a5a, 1);
+    card.strokeRoundedRect(10, top + 42, VIEW_WIDTH - 20, cardHeight, 10);
+    body.add(card);
+    body.add(promptText);
+
+    // Room for the hint / result text (up to 4 lines) and the action buttons at the bottom
+    const barY = height - 12 - 44;
+    const noteHeight = 76;
+    const noteY = barY - 6 - noteHeight;
+    this.noteText = scene.add.text(16, noteY, '', {
       fontFamily: FONT,
       fontSize: '13px',
       color: '#ffd700',
-      wordWrap: { width: GAME_WIDTH - 88, useAdvancedWrap: true },
+      wordWrap: { width: VIEW_WIDTH - 32, useAdvancedWrap: true },
       lineSpacing: 3,
       padding: { top: 2, bottom: 2 },
     });
     body.add(this.noteText);
 
-    this.buildColumns(body);
-    this.buildBottomBar(body);
+    // The note (hint / result) sits right under the last line
+    const sectionsEnd = this.buildSections(body, top + 42 + cardHeight + 10, noteY - 4);
+    this.noteText.setY(Math.min(sectionsEnd + 2, noteY));
+    this.buildBottomBar(body, barY + 22);
     this.updateSubmitState();
   }
 
-  private buildColumns(body: Phaser.GameObjects.Container): void {
+  /** Debit lines, then credit lines, sized to fill the space between the card and the note. Returns the y below them. */
+  private buildSections(body: Phaser.GameObjects.Container, startY: number, endY: number): number {
     const { scene } = this;
-    // Room above the columns for the hint / result text (up to 3 lines)
-    const headerY = 192;
-    const rowsTop = 232;
-    const rowHeight = 56;
-    const leftX = 44;
-    const rightX = 412;
-    const colWidth = 344;
-    const rowCount = Math.max(this.config.debitCount, this.config.creditCount, 1);
+    const sectionHeader = 30;
+    const sectionGap = 10;
+    const lineCount = Math.max(1, this.config.debitCount) + Math.max(1, this.config.creditCount);
+    const room = endY - startY - 2 * (sectionHeader + 4) - sectionGap;
+    const rowHeight = Math.max(40, Math.min(60, Math.floor(room / lineCount)));
+    const accountWidth = 196;
+    const amountWidth = 116;
+    const left = 12;
 
-    const drawHeader = (x: number, color: number, label: string): void => {
-      const g = scene.add.graphics();
-      g.fillStyle(color, 0.25);
-      g.fillRoundedRect(x, headerY, colWidth, 28, 4);
-      g.lineStyle(2, color, 1);
-      g.strokeRoundedRect(x, headerY, colWidth, 28, 4);
-      body.add(g);
+    let y = startY;
+    const addSection = (side: Side, count: number, color: number, label: string): void => {
+      const header = scene.add.graphics();
+      header.fillStyle(color, 0.25);
+      header.fillRoundedRect(10, y, VIEW_WIDTH - 20, sectionHeader, 8);
+      header.lineStyle(2, color, 1);
+      header.strokeRoundedRect(10, y, VIEW_WIDTH - 20, sectionHeader, 8);
+      body.add(header);
       body.add(
         scene.add
-          .text(x + colWidth / 2, headerY + 14, label, {
+          .text(VIEW_WIDTH / 2, y + sectionHeader / 2, label, {
             fontFamily: FONT,
             fontSize: '15px',
             color: '#ffffff',
@@ -270,45 +285,40 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
           })
           .setOrigin(0.5)
       );
-    };
-    drawHeader(leftX, COLORS.ASSETS, t('je.debit'));
-    drawHeader(rightX, COLORS.LIABILITIES, t('je.credit'));
+      y += sectionHeader + 4;
 
-    // T-account divider
-    const divider = scene.add.graphics();
-    divider.lineStyle(2, 0x4a4a6a, 1);
-    divider.lineBetween(GAME_WIDTH / 2, headerY, GAME_WIDTH / 2, rowsTop + rowCount * rowHeight);
-    body.add(divider);
-
-    const addRows = (side: Side, count: number, x: number): void => {
-      for (let i = 0; i < count; i++) {
-        const cy = rowsTop + i * rowHeight + 24;
+      for (let i = 0; i < Math.max(1, count); i++) {
+        const cy = y + rowHeight / 2;
         const row: Row = { side, account: null, amount: 0, accountBtn: undefined as never, amountBtn: undefined as never };
-        row.accountBtn = createMiniButton(scene, x + 122, cy, 240, 44, t('je.pick_account'), 13, () => this.openAccountPicker(row));
-        row.amountBtn = createMiniButton(scene, x + 290, cy, 108, 44, t('je.amount'), 14, () => this.openKeypad(row));
+        row.accountBtn = createMiniButton(scene, left + accountWidth / 2, cy, accountWidth, rowHeight - 6, t('je.pick_account'), 14, () => this.openAccountPicker(row));
+        row.amountBtn = createMiniButton(scene, left + accountWidth + 8 + amountWidth / 2, cy, amountWidth, rowHeight - 6, t('je.amount'), 15, () => this.openKeypad(row));
         body.add(row.accountBtn.container);
         body.add(row.amountBtn.container);
         this.rows.push(row);
+        y += rowHeight;
       }
+      y += sectionGap;
     };
-    addRows('debit', this.config.debitCount, leftX);
-    addRows('credit', this.config.creditCount, rightX);
+    addSection('debit', this.config.debitCount, COLORS.ASSETS, t('je.debit'));
+    addSection('credit', this.config.creditCount, COLORS.LIABILITIES, t('je.credit'));
+    return y;
   }
 
-  private buildBottomBar(body: Phaser.GameObjects.Container): void {
+  private buildBottomBar(body: Phaser.GameObjects.Container, centerY: number): void {
     const { scene } = this;
-    const y = 546;
+    let x = 10;
 
     if (this.config.hint) {
-      const hintBtn = createMiniButton(scene, 110, y, 150, 40, t('je.hint'), 14, () => this.toggleHint());
+      const hintBtn = createMiniButton(scene, x + 48, centerY, 96, 44, t('je.hint'), 14, () => this.toggleHint());
       body.add(hintBtn.container);
       this.sideButtons.push(hintBtn);
+      x += 102;
     }
-    const resetBtn = createMiniButton(scene, 290, y, 150, 40, t('je.reset'), 14, () => this.reset());
+    const resetBtn = createMiniButton(scene, x + 48, centerY, 96, 44, t('je.reset'), 14, () => this.reset());
     body.add(resetBtn.container);
     this.sideButtons.push(resetBtn);
 
-    this.submitBtn = createMiniButton(scene, GAME_WIDTH - 130, y, 190, 40, t('je.submit'), 16, () => this.submit());
+    this.submitBtn = createMiniButton(scene, VIEW_WIDTH - 10 - 70, centerY, 140, 44, t('je.submit'), 16, () => this.submit());
     this.submitBtn.setBorder(0xffd700);
     body.add(this.submitBtn.container);
   }
@@ -390,13 +400,13 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
 
     const { scene } = this;
     this.sideButtons.forEach(button => button.container.setVisible(false));
-    this.noteText?.setFontSize(16);
+    this.noteText?.setFontSize(15);
     this.noteText?.setFontStyle('bold');
     this.noteText?.setColor(isCorrect ? '#22c55e' : '#ffd700');
     this.noteText?.setText(isCorrect ? t('je.correct') : `${t('je.incorrect')}\n${t('je.correct_answer')} ${this.config.correctAnswer}`);
 
     this.submitBtn?.container.destroy();
-    const continueBtn = createMiniButton(scene, GAME_WIDTH - 130, 546, 190, 40, t('je.continue'), 16, () => {
+    const continueBtn = createMiniButton(scene, VIEW_WIDTH - 10 - 70, getViewHeight() - 12 - 22, 140, 44, t('je.continue'), 16, () => {
       const result = isCorrect;
       this.hide();
       this.config.onClose(result);
@@ -406,7 +416,7 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
   }
 
   // ---------------------------------------------------------------------------
-  // Account picker
+  // Bottom sheets (account picker, keypad)
   // ---------------------------------------------------------------------------
 
   private closePopup(): void {
@@ -414,12 +424,16 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
       this.scene.input.keyboard?.off('keydown', this.keypadHandler);
       this.keypadHandler = undefined;
     }
+    this.popupScroll?.destroy();
+    this.popupScroll = undefined;
     this.popup?.destroy();
     this.popup = undefined;
   }
 
-  private startPopup(width: number, height: number, title: string): { popup: Phaser.GameObjects.Container; x: number; y: number } {
+  /** A sheet rising from the bottom edge, over a dimmed page. `top` is its top edge. */
+  private startSheet(sheetHeight: number, title: string): { popup: Phaser.GameObjects.Container; top: number } {
     const { scene } = this;
+    const height = getViewHeight();
     this.closePopup();
     const popup = scene.add.container(0, 0);
     this.popup = popup;
@@ -427,25 +441,24 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
 
     const dim = scene.add.graphics();
     dim.fillStyle(0x000000, 0.6);
-    dim.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    dim.setInteractive(new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT), Phaser.Geom.Rectangle.Contains);
+    dim.fillRect(0, 0, VIEW_WIDTH, height);
+    dim.setInteractive(new Phaser.Geom.Rectangle(0, 0, VIEW_WIDTH, height), Phaser.Geom.Rectangle.Contains);
     dim.on('pointerup', () => this.closePopup());
     popup.add(dim);
 
-    const x = (GAME_WIDTH - width) / 2;
-    const y = (GAME_HEIGHT - height) / 2;
+    const top = height - sheetHeight;
     const frame = scene.add.graphics();
     frame.fillStyle(0x23233a, 1);
-    frame.fillRoundedRect(x, y, width, height, 8);
+    frame.fillRoundedRect(0, top, VIEW_WIDTH, sheetHeight + 16, 16);
     frame.lineStyle(2, COLORS.ASSETS, 1);
-    frame.strokeRoundedRect(x, y, width, height, 8);
-    // Swallow clicks inside the frame so they do not reach the dim layer
-    frame.setInteractive(new Phaser.Geom.Rectangle(x, y, width, height), Phaser.Geom.Rectangle.Contains);
+    frame.strokeRoundedRect(0, top, VIEW_WIDTH, sheetHeight + 16, 16);
+    // Swallow taps inside the sheet so they do not reach the dim layer
+    frame.setInteractive(new Phaser.Geom.Rectangle(0, top, VIEW_WIDTH, sheetHeight), Phaser.Geom.Rectangle.Contains);
     popup.add(frame);
 
     popup.add(
       scene.add
-        .text(GAME_WIDTH / 2, y + 22, title, {
+        .text(VIEW_WIDTH / 2, top + 22, title, {
           fontFamily: FONT,
           fontSize: '16px',
           color: '#ffd700',
@@ -454,63 +467,74 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
         })
         .setOrigin(0.5)
     );
-    return { popup, x, y };
+    return { popup, top };
   }
 
   private openAccountPicker(row: Row): void {
     if (this.submitted) {
       return;
     }
-    const width = 700;
-    const height = 470;
-    const { popup, x, y } = this.startPopup(width, height, t('je.pick_account'));
+    const height = getViewHeight();
+    const sheetHeight = Math.min(height - HUD_HEIGHT - 16, 500);
+    const sideLabel = row.side === 'debit' ? t('je.debit') : t('je.credit');
+    const { popup, top } = this.startSheet(sheetHeight, `${sideLabel}: ${t('je.pick_account')}`);
     const { scene } = this;
 
     const selected = this.config.accounts.find(a => a.category === row.account);
     let activeType = selected?.type ?? (row.side === 'debit' ? AccountType.ASSET : AccountType.LIABILITY);
+
+    // Tabs by account type
+    const tabGap = 6;
+    const tabW = (VIEW_WIDTH - 20 - 4 * tabGap) / 5;
+    const tabButtons: MiniButton[] = [];
+
+    // The account grid scrolls when a type has many accounts
+    const gridTop = top + 42 + 42;
+    const gridRect = { x: 10, y: gridTop, w: VIEW_WIDTH - 20, h: top + sheetHeight - 56 - gridTop };
+    this.popupScroll = new ScrollArea(scene, gridRect, popup);
+    const scroll = this.popupScroll;
     let content: Phaser.GameObjects.Container | undefined;
 
     const renderTab = (): void => {
       content?.destroy();
       content = scene.add.container(0, 0);
-      popup.add(content);
+      scroll.content.add(content);
 
       const options = this.config.accounts.filter(a => a.type === activeType);
-      const columns = options.length > 32 ? 5 : 4;
+      const columns = 2;
       const gap = 8;
-      const gridX = x + 20;
-      const gridY = y + 96;
-      const cellW = (width - 40 - gap * (columns - 1)) / columns;
-      const cellH = 34;
+      const cellW = (gridRect.w - 6 - gap * (columns - 1)) / columns;
+      const cellH = 42;
 
       options.forEach((option, index) => {
         const col = index % columns;
         const line = Math.floor(index / columns);
         const btn = createMiniButton(
           scene,
-          gridX + col * (cellW + gap) + cellW / 2,
-          gridY + line * (cellH + gap) + cellH / 2,
+          gridRect.x + col * (cellW + gap) + cellW / 2,
+          gridRect.y + 4 + line * (cellH + gap) + cellH / 2,
           cellW,
           cellH,
           option.label,
-          12,
+          14,
           () => {
             row.account = option.category;
             this.refreshRow(row);
             this.updateSubmitState();
             this.closePopup();
-          }
+          },
+          () => scroll.moved
         );
         btn.setFilled(option.category === row.account);
         content?.add(btn.container);
       });
+      const lines = Math.ceil(options.length / columns);
+      scroll.setContentHeight(4 + lines * (cellH + gap) + 4);
+      scroll.scrollTo(0);
     };
 
-    // Tabs by account type
-    const tabW = (width - 40 - 4 * 8) / 5;
-    const tabButtons: MiniButton[] = [];
     TAB_TYPES.forEach((tab, index) => {
-      const btn = createMiniButton(scene, x + 20 + index * (tabW + 8) + tabW / 2, y + 62, tabW, 32, t(tab.key), 14, () => {
+      const btn = createMiniButton(scene, 10 + index * (tabW + tabGap) + tabW / 2, top + 62, tabW, 34, t(tab.key), 14, () => {
         activeType = tab.type;
         tabButtons.forEach((b, i) => b.setBorder(TAB_TYPES[i].type === activeType ? 0xffd700 : 0x5a5a7a));
         renderTab();
@@ -520,8 +544,7 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
       popup.add(btn.container);
     });
 
-    const closeBtn = createMiniButton(scene, x + width - 60, y + height - 26, 90, 32, t('je.cancel'), 13, () => this.closePopup());
-    popup.add(closeBtn.container);
+    popup.add(createMiniButton(scene, VIEW_WIDTH / 2, top + sheetHeight - 26, 160, 40, t('je.cancel'), 14, () => this.closePopup()).container);
 
     renderTab();
   }
@@ -534,16 +557,19 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
     if (this.submitted) {
       return;
     }
-    const width = 320;
-    const height = 430;
-    const { popup, x, y } = this.startPopup(width, height, t('je.enter_amount'));
+    const keyH = 48;
+    const keyGap = 8;
+    const sheetHeight = 40 + 58 + 4 * (keyH + keyGap) + 56;
+    const sideLabel = row.side === 'debit' ? t('je.debit') : t('je.credit');
+    const accountLabel = this.config.accounts.find(a => a.category === row.account)?.label;
+    const { popup, top } = this.startSheet(sheetHeight, `${sideLabel}${accountLabel ? ` ${accountLabel}` : ''}: ${t('je.enter_amount')}`);
     const { scene } = this;
 
     let digits = row.amount > 0 ? String(row.amount) : '';
     const display = scene.add
-      .text(GAME_WIDTH / 2, y + 66, '', {
+      .text(VIEW_WIDTH / 2, top + 66, '', {
         fontFamily: FONT,
-        fontSize: '24px',
+        fontSize: '26px',
         color: '#ffffff',
         fontStyle: 'bold',
         padding: { top: 4, bottom: 4 },
@@ -571,26 +597,26 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
     };
 
     const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '00', '0', 'back'];
-    const keyW = 84;
-    const keyH = 52;
+    const keyW = (VIEW_WIDTH - 20 - 2 * keyGap) / 3;
     keys.forEach((key, index) => {
       const col = index % 3;
       const line = Math.floor(index / 3);
       const btn = createMiniButton(
         scene,
-        x + 24 + col * (keyW + 10) + keyW / 2,
-        y + 104 + line * (keyH + 10) + keyH / 2,
+        10 + col * (keyW + keyGap) + keyW / 2,
+        top + 98 + line * (keyH + keyGap) + keyH / 2,
         keyW,
         keyH,
         key === 'back' ? '⌫' : key,
-        20,
+        22,
         () => press(key)
       );
       popup.add(btn.container);
     });
 
-    popup.add(createMiniButton(scene, x + 24 + 72, y + height - 30, 132, 38, t('je.cancel'), 14, () => this.closePopup()).container);
-    const okBtn = createMiniButton(scene, x + width - 24 - 72, y + height - 30, 132, 38, t('je.ok'), 16, confirm);
+    const bottomY = top + sheetHeight - 30;
+    popup.add(createMiniButton(scene, 10 + 50, bottomY, 100, 44, t('je.cancel'), 14, () => this.closePopup()).container);
+    const okBtn = createMiniButton(scene, VIEW_WIDTH - 10 - 110, bottomY, 220, 44, t('je.ok'), 16, confirm);
     okBtn.setBorder(0xffd700);
     popup.add(okBtn.container);
 

@@ -1,22 +1,11 @@
 import Phaser from 'phaser';
-
-export const GAME_WIDTH = 800;
-export const GAME_HEIGHT = 600;
-export const TILE_SIZE = 16;
-export const SCALE_FACTOR = 2;
-
-/**
- * The game is laid out in an 800x600 world, but the canvas is rendered RENDER_SCALE times larger
- * (and every scene's camera zooms by the same factor, see utils/renderScale.ts). Text and graphics
- * are then drawn at full resolution instead of being drawn small and enlarged by the browser.
- */
-export const RENDER_SCALE = Math.min(3, Math.max(2, Math.round(window.devicePixelRatio || 1)));
+import { VIEW_WIDTH, RENDER_SCALE, getViewHeight } from './layout';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: GAME_WIDTH * RENDER_SCALE,
-  height: GAME_HEIGHT * RENDER_SCALE,
+  width: VIEW_WIDTH * RENDER_SCALE,
+  height: getViewHeight() * RENDER_SCALE,
   pixelArt: false,
   roundPixels: false,
   antialias: true,

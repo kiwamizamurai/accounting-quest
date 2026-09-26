@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, FONT_FAMILY } from '../config/constants';
+import { COLORS, SCENES, FONT_FAMILY } from '../config/constants';
+import { VIEW_WIDTH, fitViewToWindow, getViewHeight } from '../config/layout';
 import { Button } from '../ui/components/Button';
 import { getLanguage } from '../i18n';
 import { LEVEL_CONFIGS, GameLevel } from '../config/chapters.config';
@@ -19,6 +20,7 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   create(data: LevelSelectData): void {
+    fitViewToWindow(this.game);
     applyRenderScale(this);
     this.playerName = data.playerName ?? (getLanguage() === 'ja' ? '勇者' : 'Hero');
     this.uiElements = [];
@@ -34,15 +36,16 @@ export class LevelSelectScene extends Phaser.Scene {
     this.uiElements = [];
 
     const lang = getLanguage();
+    const height = getViewHeight();
 
     // Title
     const title = this.add.text(
-      GAME_WIDTH / 2,
-      50,
+      VIEW_WIDTH / 2,
+      44,
       lang === 'ja' ? 'レベルを選択' : 'Select Level',
       {
         fontFamily: FONT_FAMILY,
-        fontSize: '28px',
+        fontSize: '24px',
         color: '#ffd700',
         fontStyle: 'bold',
         padding: { top: 4, bottom: 4 },
@@ -51,31 +54,31 @@ export class LevelSelectScene extends Phaser.Scene {
     title.setOrigin(0.5);
     this.uiElements.push(title);
 
-    // Level cards
-    const cardWidth = 220;
-    const cardHeight = 340;
-    const cardSpacing = 30;
-    const totalWidth = cardWidth * 3 + cardSpacing * 2;
-    const startX = (GAME_WIDTH - totalWidth) / 2 + cardWidth / 2;
+    // Level cards, stacked: each is one big tap target
+    const cardGap = 12;
+    const top = 84;
+    const bottomRoom = 84; // back button
+    const cardWidth = VIEW_WIDTH - 30;
+    const cardHeight = Math.max(140, Math.min(176, Math.floor((height - top - bottomRoom - cardGap * 2) / 3)));
 
     LEVEL_CONFIGS.forEach((config, index) => {
-      const x = startX + index * (cardWidth + cardSpacing);
-      const y = GAME_HEIGHT / 2 + 10;
-      this.createLevelCard(x, y, cardWidth, cardHeight, config.id as GameLevel, config);
+      const y = top + index * (cardHeight + cardGap);
+      this.createLevelCard(15, y, cardWidth, cardHeight, config.id as GameLevel, config);
     });
 
     // Back button
     const backBtn = new Button(this, {
-      x: GAME_WIDTH / 2,
-      y: GAME_HEIGHT - 40,
-      width: 120,
-      height: 36,
+      x: VIEW_WIDTH / 2,
+      y: height - 42,
+      width: 150,
+      height: 46,
       text: lang === 'ja' ? '戻る' : 'Back',
       onClick: () => this.scene.start(SCENES.MENU),
     });
     this.uiElements.push(backBtn);
   }
 
+  /** One level as a card; tapping anywhere on it starts the level. `x`, `y` is its top-left corner. */
   private createLevelCard(
     x: number,
     y: number,
@@ -85,139 +88,104 @@ export class LevelSelectScene extends Phaser.Scene {
     config: typeof LEVEL_CONFIGS[number]
   ): void {
     const lang = getLanguage();
-
-    // Card background
-    const bg = this.add.graphics();
-    const bgX = x - width / 2;
-    const bgY = y - height / 2;
+    const padding = 14;
 
     // Colors per level
     const levelColors = [COLORS.ASSETS, COLORS.REVENUE, COLORS.EXPENSES];
     const borderColor = levelColors[level - 1];
+    const cssColor = `#${borderColor.toString(16).padStart(6, '0')}`;
 
-    bg.fillStyle(0x1a1a2e, 0.95);
-    bg.fillRoundedRect(bgX, bgY, width, height, 8);
-    bg.lineStyle(2, borderColor, 0.8);
-    bg.strokeRoundedRect(bgX, bgY, width, height, 8);
+    const bg = this.add.graphics();
+    const draw = (pressed: boolean): void => {
+      bg.clear();
+      bg.fillStyle(pressed ? 0x2a2a3e : 0x1a1a2e, 0.97);
+      bg.fillRoundedRect(x, y, width, height, 12);
+      bg.lineStyle(2, borderColor, pressed ? 1 : 0.8);
+      bg.strokeRoundedRect(x, y, width, height, 12);
+    };
+    draw(false);
     this.uiElements.push(bg);
 
-    // Level badge
-    const badge = this.add.text(x, bgY + 25, `Lv.${level}`, {
+    // Level badge and chapter count on the top row
+    const badge = this.add.text(x + padding, y + padding, `Lv.${level}`, {
       fontFamily: FONT_FAMILY,
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#ffffff',
-      backgroundColor: `#${borderColor.toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+      backgroundColor: cssColor,
       padding: { x: 10, y: 4 },
     });
-    badge.setOrigin(0.5);
     this.uiElements.push(badge);
 
-    // Title
-    const titleText = lang === 'ja' ? config.titleJa : config.title;
-    const titleObj = this.add.text(x, bgY + 65, titleText, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '16px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      align: 'center',
-      wordWrap: { width: width - 20 },
-      padding: { top: 4, bottom: 4 },
-    });
-    titleObj.setOrigin(0.5);
-    this.uiElements.push(titleObj);
-
-    // Subtitle
-    const subtitleText = lang === 'ja' ? config.subtitleJa : config.subtitle;
-    const subtitleObj = this.add.text(x, bgY + 95, subtitleText, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '11px',
-      color: '#aaaacc',
-      align: 'center',
-      wordWrap: { width: width - 20 },
-      padding: { top: 4, bottom: 4 },
-    });
-    subtitleObj.setOrigin(0.5);
-    this.uiElements.push(subtitleObj);
-
-    // Separator line
-    const line = this.add.graphics();
-    line.lineStyle(1, borderColor, 0.4);
-    line.lineBetween(bgX + 15, bgY + 115, bgX + width - 15, bgY + 115);
-    this.uiElements.push(line);
-
-    // Description
-    const descText = lang === 'ja' ? config.descriptionJa : config.description;
-    const descObj = this.add.text(x, bgY + 130, descText, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '10px',
-      color: '#8888aa',
-      align: 'center',
-      wordWrap: { width: width - 30, useAdvancedWrap: true },
-      lineSpacing: 4,
-      padding: { top: 4, bottom: 4 },
-    });
-    descObj.setOrigin(0.5, 0);
-    this.uiElements.push(descObj);
-
-    // Chapter count
     const chapterCount = config.chapters.length;
-    const chapterText = lang === 'ja'
-      ? `${chapterCount}章`
-      : `${chapterCount} Chapters`;
-    const chapterObj = this.add.text(x, bgY + height - 65, chapterText, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '11px',
-      color: '#6a6a8a',
-      padding: { top: 4, bottom: 4 },
-    });
-    chapterObj.setOrigin(0.5);
+    const chapterObj = this.add.text(
+      x + width - padding,
+      y + padding + 11,
+      lang === 'ja' ? `${chapterCount}章` : `${chapterCount} Chapters`,
+      {
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
+        color: '#aab0c8',
+        padding: { top: 4, bottom: 4 },
+      }
+    );
+    chapterObj.setOrigin(1, 0.5);
     this.uiElements.push(chapterObj);
 
-    // Hover effect on card (must be added before button so button stays on top)
-    const hitArea = this.add.rectangle(x, y, width, height);
-    hitArea.setInteractive({ useHandCursor: true });
-    hitArea.setAlpha(0.001);
-    hitArea.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(0x2a2a3e, 0.95);
-      bg.fillRoundedRect(bgX, bgY, width, height, 8);
-      bg.lineStyle(2, borderColor, 1);
-      bg.strokeRoundedRect(bgX, bgY, width, height, 8);
+    // Title and subtitle
+    const titleObj = this.add.text(x + padding, y + 46, lang === 'ja' ? config.titleJa : config.title, {
+      fontFamily: FONT_FAMILY,
+      fontSize: '18px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      wordWrap: { width: width - padding * 2 },
+      padding: { top: 4, bottom: 4 },
     });
-    hitArea.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(0x1a1a2e, 0.95);
-      bg.fillRoundedRect(bgX, bgY, width, height, 8);
-      bg.lineStyle(2, borderColor, 0.8);
-      bg.strokeRoundedRect(bgX, bgY, width, height, 8);
-    });
-    this.uiElements.push(hitArea);
+    this.uiElements.push(titleObj);
 
-    // Start button (added after hitArea so it's on top in the display list)
+    const subtitleObj = this.add.text(x + padding, y + 74, lang === 'ja' ? config.subtitleJa : config.subtitle, {
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
+      color: '#c0c4dc',
+      wordWrap: { width: width - padding * 2, useAdvancedWrap: true },
+      padding: { top: 4, bottom: 4 },
+    });
+    this.uiElements.push(subtitleObj);
+
+    // Description, as many lines as fit above the start prompt
+    const descObj = this.add.text(x + padding, y + 98, lang === 'ja' ? config.descriptionJa : config.description, {
+      fontFamily: FONT_FAMILY,
+      fontSize: '12px',
+      color: '#9a9ab8',
+      wordWrap: { width: width - padding * 2, useAdvancedWrap: true },
+      lineSpacing: 3,
+      padding: { top: 2, bottom: 2 },
+    });
+    const descRoom = y + height - 28 - descObj.y;
+    if (descObj.height > descRoom) {
+      descObj.setFontSize(11);
+    }
+    this.uiElements.push(descObj);
+
+    // Start prompt
+    const startObj = this.add.text(x + width - padding, y + height - 16, lang === 'ja' ? 'はじめる ▶' : 'Start ▶', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '15px',
+      color: cssColor,
+      fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
+    });
+    startObj.setOrigin(1, 0.5);
+    this.uiElements.push(startObj);
+
+    // The whole card is the tap target
     const firstChapterId = config.chapters[0]?.id ?? 1;
-    const btn = new Button(this, {
-      x,
-      y: bgY + height - 30,
-      width: width - 40,
-      height: 36,
-      text: lang === 'ja' ? 'はじめる' : 'Start',
-      onClick: () => this.startLevel(level, firstChapterId),
-    });
-    btn.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(0x2a2a3e, 0.95);
-      bg.fillRoundedRect(bgX, bgY, width, height, 8);
-      bg.lineStyle(2, borderColor, 1);
-      bg.strokeRoundedRect(bgX, bgY, width, height, 8);
-    });
-    btn.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(0x1a1a2e, 0.95);
-      bg.fillRoundedRect(bgX, bgY, width, height, 8);
-      bg.lineStyle(2, borderColor, 0.8);
-      bg.strokeRoundedRect(bgX, bgY, width, height, 8);
-    });
-    this.uiElements.push(btn);
+    const hitArea = this.add.zone(x + width / 2, y + height / 2, width, height);
+    hitArea.setInteractive({ useHandCursor: true });
+    hitArea.on('pointerdown', () => draw(true));
+    hitArea.on('pointerout', () => draw(false));
+    hitArea.on('pointerup', () => this.startLevel(level, firstChapterId));
+    this.uiElements.push(hitArea);
   }
 
   private startLevel(level: GameLevel, firstChapterId: number): void {

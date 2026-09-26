@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, DEPTH, FONT_FAMILY } from '../config/constants';
+import { DEPTH, FONT_FAMILY } from '../config/constants';
+import { ART_WIDTH, ART_HEIGHT, VIEW_WIDTH, HUD_HEIGHT, fitViewToWindow, getVNLayout, getViewHeight } from '../config/layout';
 import { ScriptEngine, ScriptEngineCallback } from '../vn/ScriptEngine';
 import { CharacterPosition } from '../vn/types';
 import { getGameStateManager } from '../state/GameStateManager';
 import { SaveLoadManager } from '../state/SaveLoadManager';
 import { getLanguage, setLanguage, t } from '../i18n';
 import { getAudioManager } from '../managers/AudioManager';
-import { Button } from '../ui/components/Button';
-import { COLORS } from '../config/constants';
+import { SettingsPanel } from '../ui/components/SettingsPanel';
+import { Hud, HUD_COLORS, HudButton } from '../ui/vn/Hud';
 import { VNDialogBox } from '../ui/vn/VNDialogBox';
 import { ChoicePanel } from '../ui/vn/ChoicePanel';
 import { JournalEntryPanel } from '../ui/vn/JournalEntryPanel';
@@ -66,17 +67,22 @@ export class VNScene extends Phaser.Scene {
   private transactionAnim!: TransactionAnimation;
   private scorecard!: Scorecard;
   private portraits: Map<string, CharacterPortrait> = new Map();
-  private chapterLabel!: Phaser.GameObjects.Text;
-  private settingsButton!: Phaser.GameObjects.Text;
-  private langButton!: Phaser.GameObjects.Text;
+  private stage!: Phaser.GameObjects.Container;
+  private hud!: Hud;
+  private langButton!: HudButton;
+  private bsButton!: HudButton;
+  private plButton!: HudButton;
+  private equationText!: Phaser.GameObjects.Text;
+  private lastEquation = '';
   private autoSaveTimer?: Phaser.Time.TimerEvent;
-  private settingsPanelElements: Phaser.GameObjects.GameObject[] = [];
+  private settingsPanel?: SettingsPanel;
 
   constructor() {
     super('VNScene');
   }
 
   create(data: VNSceneData): void {
+    fitViewToWindow(this.game);
     applyRenderScale(this);
     const chapterId = data.chapterId ?? 1;
     const gameState = getGameStateManager();
@@ -104,8 +110,11 @@ export class VNScene extends Phaser.Scene {
       this.scriptEngine.registerChapter(ch);
     }
 
-    // Background
+    // Stage: the 800x600 scene art (background + characters), scaled to fill the area above the dialog
+    this.stage = this.add.container(0, 0);
+    this.layoutStage();
     this.backgroundRenderer = new BackgroundRenderer(this);
+    this.stage.add(this.backgroundRenderer);
 
     // UI components
     this.dialogBox = new VNDialogBox(this);
@@ -113,58 +122,13 @@ export class VNScene extends Phaser.Scene {
     this.journalEntryPanel = new JournalEntryPanel(this);
     this.transactionAnim = new TransactionAnimation(this);
 
-    // Scorecard (reused from RPG)
+    // Balance sheet / income statement sheet
     this.scorecard = new Scorecard(this);
     this.scorecard.setScrollFactor(0);
+    this.scorecard.onChange = () => this.onReportSheetChanged();
 
-    // Chapter label (top-left)
-    this.chapterLabel = this.add.text(20, 20, `Ch.${chapterId}`, {
-      fontFamily: FONT_FAMILY,
-      fontSize: '14px',
-      color: '#ffd700',
-      backgroundColor: '#1a1a2e',
-      padding: { x: 8, y: 4 },
-    });
-    this.chapterLabel.setDepth(DEPTH.UI_TEXT);
-
-    // Settings button (top row, left of the PL/BS toggles so it never overlaps the report panels)
-    this.settingsButton = this.add.text(GAME_WIDTH - 224, 17, '⚙', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '16px',
-      color: '#ffffff',
-      backgroundColor: '#4a4a6a',
-      padding: { x: 6, y: 3 },
-    });
-    this.settingsButton.setOrigin(1, 0);
-    this.settingsButton.setDepth(DEPTH.UI_TEXT);
-    this.settingsButton.setInteractive({ useHandCursor: true });
-    this.settingsButton.on('pointerdown', () => {
-      this.showSettingsPanel();
-    });
-
-    // Language toggle (top row, between the settings button and the PL/BS toggles)
-    this.langButton = this.add.text(GAME_WIDTH - 190, 20, lang === 'ja' ? 'EN' : 'JA', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '12px',
-      color: '#ffffff',
-      backgroundColor: '#4a4a6a',
-      padding: { x: 6, y: 3 },
-    });
-    this.langButton.setOrigin(1, 0);
-    this.langButton.setDepth(DEPTH.UI_TEXT);
-    this.langButton.setInteractive({ useHandCursor: true });
-    this.langButton.on('pointerdown', () => {
-      const newLang = getLanguage() === 'ja' ? 'en' : 'ja';
-      setLanguage(newLang);
-      this.langButton.setText(newLang === 'ja' ? 'EN' : 'JA');
-      // Update scorecard to reflect new language
-      this.updateScorecard();
-      // Re-execute current node to update display language
-      const currentNode = this.scriptEngine.getCurrentNode();
-      if (currentNode && (currentNode.type === 'dialog' || currentNode.type === 'narration')) {
-        this.scriptEngine.advance(currentNode.id);
-      }
-    });
+    this.createHud(chapterId, lang);
+    this.createEquationStrip();
 
     // Register shutdown handler for cleanup
     this.events.on('shutdown', this.shutdown, this);
@@ -219,6 +183,7 @@ export class VNScene extends Phaser.Scene {
       },
 
       onChoice: (prompt, choices) => {
+        this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.show(prompt, choices, (index) => {
           this.scriptEngine.selectChoice(index);
@@ -226,6 +191,7 @@ export class VNScene extends Phaser.Scene {
       },
 
       onTransaction: (description, entries, showAnimation) => {
+        this.scorecard.close();
         this.dialogBox.hide();
         // Play transaction SFX
         const audioManager = getAudioManager();
@@ -340,6 +306,7 @@ export class VNScene extends Phaser.Scene {
       },
 
       onChapterEnd: (nextChapter, summary) => {
+        this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.hide();
 
@@ -352,7 +319,8 @@ export class VNScene extends Phaser.Scene {
         }
       },
 
-      onQuiz: (question, options, _correctIndex, correctFeedback, incorrectFeedback) => {
+      onQuiz: (question, options, correctIndex, correctFeedback, incorrectFeedback) => {
+        this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.show(
           question,
@@ -367,11 +335,13 @@ export class VNScene extends Phaser.Scene {
               this.updateScorecard();
               this.scriptEngine.advance();
             });
-          }
+          },
+          correctIndex
         );
       },
 
       onJournalEntryInput: (prompt, expectedEntries, correctFeedback, incorrectFeedback, hint) => {
+        this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.hide();
         const lang = getLanguage();
@@ -415,21 +385,24 @@ export class VNScene extends Phaser.Scene {
     // Remove existing portrait for this character
     this.removeCharacter(characterId);
 
+    // Positions in the 800x600 scene art. The stage crops the sides on a narrow screen, so the
+    // left / right characters stand closer to the middle than they did on a wide canvas.
     let x: number;
     switch (position) {
       case 'left':
-        x = 150;
+        x = ART_WIDTH / 2 - 165;
         break;
       case 'right':
-        x = GAME_WIDTH - 150;
+        x = ART_WIDTH / 2 + 165;
         break;
       case 'center':
-        x = GAME_WIDTH / 2;
+        x = ART_WIDTH / 2;
         break;
     }
 
     const portrait = new CharacterPortrait(this, characterId, x);
     portrait.setDepth(DEPTH.NPC);
+    this.stage.add(portrait);
     portrait.show(expression as any);
     this.portraits.set(characterId, portrait);
   }
@@ -456,28 +429,111 @@ export class VNScene extends Phaser.Scene {
     this.scorecard.update(bs);
     const is = gameState.getIncomeStatement();
     this.scorecard.updateIncomeStatement(is);
+    this.updateEquation(bs.totalAssets, bs.totalLiabilities, bs.totalEquity, bs.isBalanced);
+  }
+
+  /** Scale and place the stage so the scene art fills the area between the top bar and the dialog. */
+  private layoutStage(): void {
+    const { stage } = getVNLayout();
+    const scale = Math.max(stage.h / ART_HEIGHT, stage.w / ART_WIDTH);
+    this.stage.setScale(scale);
+    this.stage.setPosition(
+      stage.x + (stage.w - ART_WIDTH * scale) / 2,
+      stage.y + (stage.h - ART_HEIGHT * scale) / 2
+    );
+  }
+
+  /** Top bar: chapter label, then (right to left) BS, PL, language and settings buttons. */
+  private createHud(chapterId: number, lang: string): void {
+    this.hud = new Hud(this, `Ch.${chapterId}`);
+    this.bsButton = this.hud.addButton('BS', 44, HUD_COLORS.balanceSheet, () => this.scorecard.toggle());
+    this.plButton = this.hud.addButton('PL', 44, HUD_COLORS.incomeStatement, () => this.scorecard.togglePl());
+    this.langButton = this.hud.addButton(lang === 'ja' ? 'EN' : 'JA', 40, HUD_COLORS.neutral, () => {
+      const newLang = getLanguage() === 'ja' ? 'en' : 'ja';
+      setLanguage(newLang);
+      this.langButton.setLabel(newLang === 'ja' ? 'EN' : 'JA');
+      // Update scorecard to reflect new language
+      this.updateScorecard();
+      // Re-execute current node to update display language
+      const currentNode = this.scriptEngine.getCurrentNode();
+      if (currentNode && (currentNode.type === 'dialog' || currentNode.type === 'narration')) {
+        this.scriptEngine.advance(currentNode.id);
+      }
+    });
+    this.hud.addButton('\u2699', 36, HUD_COLORS.neutral, () => this.showSettingsPanel());
+  }
+
+  /** Bottom strip: assets = liabilities + equity, always in view; tap it to open the balance sheet. */
+  private createEquationStrip(): void {
+    const { strip } = getVNLayout();
+    const bar = this.add.graphics();
+    bar.fillStyle(0x0a0a1e, 0.94);
+    bar.fillRect(strip.x, strip.y, strip.w, strip.h);
+    bar.lineStyle(1, 0x2a2a4a, 1);
+    bar.lineBetween(strip.x, strip.y + 0.5, strip.x + strip.w, strip.y + 0.5);
+    bar.setDepth(DEPTH.UI_PANEL);
+
+    this.equationText = this.add.text(strip.x + strip.w / 2, strip.y + strip.h / 2, '', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
+      color: '#aab0c8',
+      padding: { top: 4, bottom: 4 },
+    });
+    this.equationText.setOrigin(0.5);
+    this.equationText.setDepth(DEPTH.UI_PANEL);
+
+    const zone = this.add.zone(strip.x + strip.w / 2, strip.y + strip.h / 2, strip.w, strip.h);
+    zone.setInteractive({ useHandCursor: true });
+    zone.on('pointerup', () => this.scorecard.toggle());
+    zone.setDepth(DEPTH.UI_PANEL);
+  }
+
+  private updateEquation(assets: number, liabilities: number, equity: number, balanced: boolean): void {
+    const ja = getLanguage() === 'ja';
+    const text = ja
+      ? `資産 ${formatMoney(assets)} ＝ 負債 ${formatMoney(liabilities)} ＋ 純資産 ${formatMoney(equity)}`
+      : `Assets ${formatMoney(assets)} = Liabilities ${formatMoney(liabilities)} + Equity ${formatMoney(equity)}`;
+    this.equationText.setText(text);
+    this.equationText.setColor(balanced ? '#aab0c8' : '#ef4444');
+    // A long line shrinks to stay inside the strip
+    const room = VIEW_WIDTH - 20;
+    this.equationText.setScale(this.equationText.width > room ? room / this.equationText.width : 1);
+
+    // Flash when the numbers change so a posted entry is noticed
+    if (this.lastEquation && this.lastEquation !== text) {
+      this.equationText.setColor('#ffd700');
+      this.time.delayedCall(700, () => {
+        if (this.equationText.active) this.equationText.setColor(balanced ? '#aab0c8' : '#ef4444');
+      });
+    }
+    this.lastEquation = text;
+  }
+
+  /** The report sheet opened or closed: keep the dialog readable below it and the choices out of its way. */
+  private onReportSheetChanged(): void {
+    const open = this.scorecard.bsExpanded || this.scorecard.plExpanded;
+    this.bsButton.setActive(this.scorecard.bsExpanded);
+    this.plButton.setActive(this.scorecard.plExpanded);
+    this.dialogBox.setCompact(open);
+    this.choicePanel.setSuspended(open);
   }
 
   private showChapterSummary(summary: string, nextChapter?: number): void {
     const lang = getLanguage();
+    const height = getViewHeight();
 
-    // Fold the BS/PL panels away so they do not show through the overlay behind the summary text
-    if (this.scorecard.bsExpanded) {
-      this.scorecard.toggle();
-    }
-    if (this.scorecard.plExpanded) {
-      this.scorecard.togglePl();
-    }
+    // Fold the report sheet away so it does not show through the overlay behind the summary text
+    this.scorecard.close();
 
     // Overlay
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, VIEW_WIDTH, height);
     overlay.setDepth(DEPTH.TRANSITION);
 
     // Summary text
     const summaryTitle = this.add.text(
-      GAME_WIDTH / 2, 100,
+      VIEW_WIDTH / 2, HUD_HEIGHT + 50,
       lang === 'ja' ? '章のまとめ' : 'Chapter Summary',
       {
         fontFamily: FONT_FAMILY,
@@ -491,13 +547,13 @@ export class VNScene extends Phaser.Scene {
     summaryTitle.setDepth(DEPTH.TRANSITION + 1);
 
     const summaryText = this.add.text(
-      GAME_WIDTH / 2, GAME_HEIGHT / 2,
+      VIEW_WIDTH / 2, height / 2,
       summary,
       {
         fontFamily: FONT_FAMILY,
-        fontSize: '16px',
+        fontSize: '17px',
         color: '#ffffff',
-        wordWrap: { width: GAME_WIDTH - 100, useAdvancedWrap: true },
+        wordWrap: { width: VIEW_WIDTH - 56, useAdvancedWrap: true },
         align: 'center',
         lineSpacing: 8,
         padding: { top: 4, bottom: 4 },
@@ -505,13 +561,19 @@ export class VNScene extends Phaser.Scene {
     );
     summaryText.setOrigin(0.5);
     summaryText.setDepth(DEPTH.TRANSITION + 1);
+    // A long summary uses a smaller size so it stays between the title and the prompt
+    const room = height - (HUD_HEIGHT + 100) - 100;
+    for (const size of [16, 15, 14, 13]) {
+      if (summaryText.height <= room) break;
+      summaryText.setFontSize(size);
+    }
 
     const continueText = this.add.text(
-      GAME_WIDTH / 2, GAME_HEIGHT - 80,
-      lang === 'ja' ? 'クリックで続ける...' : 'Click to continue...',
+      VIEW_WIDTH / 2, height - 60,
+      lang === 'ja' ? 'タップして続ける' : 'Tap to continue',
       {
         fontFamily: FONT_FAMILY,
-        fontSize: '14px',
+        fontSize: '15px',
         color: '#aaaacc',
         padding: { top: 4, bottom: 4 },
       }
@@ -553,12 +615,12 @@ export class VNScene extends Phaser.Scene {
   }
 
   private showNotification(text: string): void {
-    const notif = this.add.text(GAME_WIDTH / 2, 80, text, {
+    const notif = this.add.text(VIEW_WIDTH / 2, HUD_HEIGHT + 30, text, {
       fontFamily: FONT_FAMILY,
-      fontSize: '14px',
+      fontSize: '15px',
       color: '#4ad94a',
       backgroundColor: '#1a1a2e',
-      padding: { x: 12, y: 6 },
+      padding: { x: 14, y: 8 },
     });
     notif.setOrigin(0.5);
     notif.setDepth(DEPTH.TRANSITION);
@@ -566,7 +628,7 @@ export class VNScene extends Phaser.Scene {
     this.tweens.add({
       targets: notif,
       alpha: 0,
-      y: 60,
+      y: HUD_HEIGHT + 10,
       duration: 1500,
       delay: 1000,
       onComplete: () => notif.destroy(),
@@ -574,201 +636,12 @@ export class VNScene extends Phaser.Scene {
   }
 
   private showSettingsPanel(): void {
+    if (this.settingsPanel) return;
     this.dialogBox.blockInput();
-    const lang = getLanguage();
-    const gameState = getGameStateManager();
-    const settings = gameState.getState().settings;
-
-    // Overlay
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.6);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    overlay.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT),
-      Phaser.Geom.Rectangle.Contains
-    );
-    overlay.setDepth(DEPTH.TRANSITION);
-
-    const panelW = 400;
-    const panelH = 320;
-    const panelX = (GAME_WIDTH - panelW) / 2;
-    const panelY = (GAME_HEIGHT - panelH) / 2;
-
-    // Panel background
-    const bg = this.add.graphics();
-    bg.fillStyle(0x1a1a2e, 0.95);
-    bg.fillRoundedRect(panelX, panelY, panelW, panelH, 8);
-    bg.lineStyle(2, COLORS.ASSETS, 0.8);
-    bg.strokeRoundedRect(panelX, panelY, panelW, panelH, 8);
-    bg.setInteractive(
-      new Phaser.Geom.Rectangle(panelX, panelY, panelW, panelH),
-      Phaser.Geom.Rectangle.Contains
-    );
-    bg.setDepth(DEPTH.TRANSITION);
-
-    // Title
-    const titleText = this.add.text(
-      panelX + panelW / 2,
-      panelY + 20,
-      lang === 'ja' ? '設定' : 'Settings',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '20px',
-        color: '#ffd700',
-        fontStyle: 'bold',
-      }
-    );
-    titleText.setOrigin(0.5, 0);
-    titleText.setDepth(DEPTH.TRANSITION);
-
-    // BGM Toggle Label
-    const bgmLabelY = panelY + 80;
-    const bgmLabel = this.add.text(
-      panelX + 30,
-      bgmLabelY,
-      lang === 'ja' ? 'BGM: ' : 'BGM: ',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '14px',
-        color: '#ffffff',
-      }
-    );
-    bgmLabel.setDepth(DEPTH.TRANSITION);
-
-    // BGM Toggle Button
-    const bgmToggleBtn = new Button(this, {
-      x: panelX + 320,
-      y: bgmLabelY + 8,
-      width: 60,
-      height: 28,
-      text: settings.bgmEnabled ? 'ON' : 'OFF',
-      fontSize: 13,
-      onClick: () => {
-        const currentSettings = gameState.getState().settings;
-        const newValue = !currentSettings.bgmEnabled;
-        gameState.updateSettings({ bgmEnabled: newValue });
-
-        const audioManager = getAudioManager();
-        if (newValue) {
-          audioManager.playBGM();
-        } else {
-          audioManager.stopBGM();
-        }
-
-        // Update button text
-        bgmToggleBtn.setText(newValue ? 'ON' : 'OFF');
-      },
+    this.settingsPanel = new SettingsPanel(this, () => {
+      this.settingsPanel = undefined;
+      this.dialogBox.unblockInput();
     });
-    bgmToggleBtn.setDepth(DEPTH.TRANSITION);
-
-    // Music Volume Label
-    const musicVolumeLabelY = panelY + 140;
-    const musicLabel = this.add.text(
-      panelX + 30,
-      musicVolumeLabelY,
-      lang === 'ja' ? '音楽音量: ' : 'Music: ',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: '#ffffff',
-      }
-    );
-    musicLabel.setDepth(DEPTH.TRANSITION);
-
-    // Music Volume Slider
-    const musicSliderY = musicVolumeLabelY + 25;
-    const musicSliderBg = this.add.graphics();
-    musicSliderBg.fillStyle(0x4a4a6a, 1);
-    musicSliderBg.fillRect(panelX + 30, musicSliderY, 300, 8);
-    musicSliderBg.setDepth(DEPTH.TRANSITION);
-
-    const musicSliderFill = this.add.graphics();
-    musicSliderFill.fillStyle(COLORS.ASSETS, 1);
-    musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * settings.musicVolume, 8);
-    musicSliderFill.setDepth(DEPTH.TRANSITION);
-
-    // Music Volume Slider Interactive Area
-    const musicSliderArea = this.add.zone(panelX + 180, musicSliderY + 4, 300, 16);
-    musicSliderArea.setInteractive({ useHandCursor: true });
-    musicSliderArea.setDepth(DEPTH.TRANSITION);
-    musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.worldX - (panelX + 30);
-      const newVolume = Math.max(0, Math.min(1, localX / 300));
-      gameState.updateSettings({ musicVolume: newVolume });
-      getAudioManager().setMusicVolume(newVolume);
-      musicSliderFill.clear();
-      musicSliderFill.fillStyle(COLORS.ASSETS, 1);
-      musicSliderFill.fillRect(panelX + 30, musicSliderY, 300 * newVolume, 8);
-    });
-
-    // SFX Volume Label
-    const sfxVolumeLabelY = panelY + 210;
-    const sfxLabel = this.add.text(
-      panelX + 30,
-      sfxVolumeLabelY,
-      lang === 'ja' ? 'SFX音量: ' : 'SFX: ',
-      {
-        fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: '#ffffff',
-      }
-    );
-    sfxLabel.setDepth(DEPTH.TRANSITION);
-
-    // SFX Volume Slider
-    const sfxSliderY = sfxVolumeLabelY + 25;
-    const sfxSliderBg = this.add.graphics();
-    sfxSliderBg.fillStyle(0x4a4a6a, 1);
-    sfxSliderBg.fillRect(panelX + 30, sfxSliderY, 300, 8);
-    sfxSliderBg.setDepth(DEPTH.TRANSITION);
-
-    const sfxSliderFill = this.add.graphics();
-    sfxSliderFill.fillStyle(COLORS.ASSETS, 1);
-    sfxSliderFill.fillRect(panelX + 30, sfxSliderY, 300 * settings.sfxVolume, 8);
-    sfxSliderFill.setDepth(DEPTH.TRANSITION);
-
-    // SFX Volume Slider Interactive Area
-    const sfxSliderArea = this.add.zone(panelX + 180, sfxSliderY + 4, 300, 16);
-    sfxSliderArea.setInteractive({ useHandCursor: true });
-    sfxSliderArea.setDepth(DEPTH.TRANSITION);
-    sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.worldX - (panelX + 30);
-      const newVolume = Math.max(0, Math.min(1, localX / 300));
-      gameState.updateSettings({ sfxVolume: newVolume });
-      sfxSliderFill.clear();
-      sfxSliderFill.fillStyle(COLORS.ASSETS, 1);
-      sfxSliderFill.fillRect(panelX + 30, sfxSliderY, 300 * newVolume, 8);
-    });
-
-    // Close button
-    const closeBtn = new Button(this, {
-      x: panelX + panelW / 2,
-      y: panelY + panelH - 30,
-      width: 100,
-      height: 36,
-      text: lang === 'ja' ? '閉じる' : 'Close',
-      onClick: () => {
-        this.destroySettingsPanel();
-      },
-    });
-    closeBtn.setDepth(DEPTH.TRANSITION);
-
-    this.settingsPanelElements = [
-      overlay, bg, bgmToggleBtn, bgmLabel, musicLabel,
-      musicSliderBg, musicSliderFill, musicSliderArea,
-      sfxLabel, sfxSliderBg, sfxSliderFill, sfxSliderArea,
-      titleText, closeBtn,
-    ];
-  }
-
-  private destroySettingsPanel(): void {
-    this.dialogBox.unblockInput();
-    for (const el of this.settingsPanelElements) {
-      if (el && el.active) {
-        el.destroy();
-      }
-    }
-    this.settingsPanelElements = [];
   }
 
   shutdown(): void {
@@ -777,7 +650,8 @@ export class VNScene extends Phaser.Scene {
     audioManager.stopBGM();
 
     // Clean up settings panel if open
-    this.destroySettingsPanel();
+    this.settingsPanel?.destroy();
+    this.settingsPanel = undefined;
 
     if (this.autoSaveTimer) {
       this.autoSaveTimer.destroy();
