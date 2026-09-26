@@ -1,8 +1,43 @@
+<div align="center">
+
+<img src="public/favicon.svg" width="128" height="128" alt="The Accounting Quest icon: a pixel-art lemon slice split by a T-account">
+
 # The Accounting Quest
 
-A visual novel-style educational game that teaches accounting fundamentals through running a lemonade stand. Built with Phaser 3 and TypeScript.
+**Learn double-entry bookkeeping by running a lemonade stand.**<br>
+A visual novel-style educational game built with Phaser 3 and TypeScript.
+
+[![Unit Tests](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/test.yml?branch=main&label=Unit%20Tests&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/test.yml)
+[![E2E Tests](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/e2e.yml?branch=main&label=E2E%20Tests&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/e2e.yml)
+[![Deploy](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/deploy.yml?branch=main&label=Deploy&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square&labelColor=1a1a2e)](LICENSE)
+
+![Phaser](https://img.shields.io/github/package-json/dependency-version/kiwamizamurai/accounting-quest/phaser?label=Phaser&style=flat-square&labelColor=1a1a2e)
+![TypeScript](https://img.shields.io/github/package-json/dependency-version/kiwamizamurai/accounting-quest/dev/typescript?label=TypeScript&logo=typescript&logoColor=white&style=flat-square&labelColor=1a1a2e)
+![Vite](https://img.shields.io/github/package-json/dependency-version/kiwamizamurai/accounting-quest/dev/vite?label=Vite&logo=vite&logoColor=white&style=flat-square&labelColor=1a1a2e)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square&labelColor=1a1a2e)](CONTRIBUTING.md)
+
+[**Play online**](https://kiwamizamurai.github.io/accounting-quest/) &nbsp;·&nbsp; [Report a bug](https://github.com/kiwamizamurai/accounting-quest/issues/new?template=bug_report.yml) &nbsp;·&nbsp; [Report a content error](https://github.com/kiwamizamurai/accounting-quest/issues/new?template=content_error.yml) &nbsp;·&nbsp; [Request a feature](https://github.com/kiwamizamurai/accounting-quest/issues/new?template=feature_request.yml)
+
+</div>
 
 > Inspired by **"The Accounting Game: Basic Accounting Fresh from the Lemonade Stand"** by Darrell Mullis & Judith Orloff.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Chapter Learning Content](#chapter-learning-content)
+- [Level 2: Lemonade Corporation](#level-2-lemonade-corporation-ch101-112)
+- [Level 3: Lemonade Group](#level-3-lemonade-group-ch201-210)
+- [Account List](#account-list)
+- [Financial Statements](#financial-statements)
+- [Key Accounting Concepts](#key-accounting-concepts)
+- [Controls](#controls)
+- [Getting Started](#getting-started)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
@@ -274,13 +309,60 @@ The three statements together show the complete financial story: profitability (
 | S | Save game |
 | Click on BS/PL buttons | Toggle respective panels |
 
-## Development
+## Getting Started
+
+Requires Node.js 20.19 or newer.
 
 ```bash
-cd accounting-game
+git clone https://github.com/kiwamizamurai/accounting-quest.git
+cd accounting-quest
 npm install
-npm run dev       # Start dev server
-npm run build     # Production build
-npm run test      # Run tests
-npx tsc --noEmit  # Type check
+npm run dev       # http://localhost:3000
 ```
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Type-check and build for production |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Type-check only (`tsc --noEmit`, strict mode) |
+| `npm test` | Run unit tests in watch mode (`npx vitest run` for a single run) |
+| `npm run test:coverage` | Run unit tests once with a coverage report |
+| `npm run test:e2e` | Run Playwright end-to-end tests (first time: `npx playwright install chromium`) |
+| `npm run deploy` | Build and publish to GitHub Pages |
+
+Progress is saved to your browser's `localStorage`.
+
+## Tech Stack
+
+- [Phaser 3](https://phaser.io/) for rendering and scenes
+- TypeScript (strict) and [Vite](https://vite.dev/)
+- [Vitest](https://vitest.dev/) with jsdom for unit tests, [Playwright](https://playwright.dev/) for end-to-end tests
+- GitHub Actions for CI and deployment to GitHub Pages
+- Text bundles in Japanese (default) and English
+
+## Project Structure
+
+```
+src/
+├── config/     Game options, chapter registry, constants
+├── data/       Chapter scripts (chapters/chapterN.ts) and characters
+├── engine/     Accounting engine and transaction processor
+├── i18n/       ja.json / en.json and the t(key) helper
+├── managers/   Audio
+├── models/     Account, Chapter, GameState, Transaction types
+├── scenes/     Boot, Title, LevelSelect, ChapterTitle, VN scenes
+├── state/      GameStateManager and save/load
+├── ui/         Dialog, choice, statement and animation components
+├── utils/      Color palette, money formatting
+└── vn/         Script engine, node types, condition evaluator
+tests/          Unit tests (Vitest) and e2e/ (Playwright)
+```
+
+## Contributing
+
+Contributions are welcome, especially fixes for accounting or content errors. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). For security issues, see [SECURITY.md](SECURITY.md).
+
+## License
+
+Released under the [MIT License](LICENSE).
