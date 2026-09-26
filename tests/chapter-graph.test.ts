@@ -63,19 +63,13 @@ function readFlags(node: ScriptNode): Set<string> {
   switch (node.type) {
     case 'transaction':
       entryFlags(node.entries, out);
+      node.distractors?.forEach(entries => entryFlags(entries, out));
       break;
     case 'journal_entry_input':
       entryFlags(node.expectedEntries, out);
       break;
     case 'calc':
       calcFlags(node.expr, out);
-      break;
-    case 'number_input':
-      calcFlags(node.min, out);
-      calcFlags(node.max, out);
-      calcFlags(node.initial, out);
-      Object.values(node.preview?.values ?? {}).forEach(expr => calcFlags(expr, out));
-      if (node.preview) out.delete(node.flag);
       break;
     case 'conditional':
       conditionFlags(node.condition, out);
@@ -98,7 +92,6 @@ function definedFlags(nodes: ScriptNode[]): Set<string> {
   for (const node of nodes) {
     if (node.type === 'set_flag') Object.keys(node.flags).forEach(flag => out.add(flag));
     if (node.type === 'calc') out.add(node.set);
-    if (node.type === 'number_input') out.add(node.flag);
     if (node.type === 'choice') {
       node.choices.forEach(choice => Object.keys(choice.effects?.setFlags ?? {}).forEach(flag => out.add(flag)));
     }
@@ -138,6 +131,20 @@ describe.each(chapters.map(c => [c.id, c] as const))('chapter %i script', (_id, 
       [...readFlags(node)].filter(flag => !defined.has(flag)).map(flag => `${node.id}: ${flag}`)
     );
     expect(unknown).toEqual([]);
+  });
+
+  it('gives every player entry wrong entries to pick from, none of them equal to the right one', () => {
+    const canonical = (entries: EntryDef[]): string =>
+      JSON.stringify(entries.map(e => [e.account, e.debit ?? 0, e.credit ?? 0]).sort());
+    const problems = nodes.flatMap(node => {
+      if (node.type !== 'transaction' || node.entry !== 'player') return [];
+      const wrong = node.distractors ?? [];
+      const found: string[] = [];
+      if (wrong.length < 2) found.push(`${node.id}: needs at least two wrong entries`);
+      if (wrong.some(entries => canonical(entries) === canonical(node.entries))) found.push(`${node.id}: a wrong entry equals the right one`);
+      return found;
+    });
+    expect(problems).toEqual([]);
   });
 
   it('has at most three rating goals', () => {

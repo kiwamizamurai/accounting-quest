@@ -35,10 +35,9 @@ Chapters are data-driven node graphs defined in `src/data/chapters/chapterN.ts`.
 `ScriptEngine` (`src/vn/ScriptEngine.ts`) executes these nodes and fires typed callbacks (`ScriptEngineCallback`) that `VNScene` handles. Node types are defined in `src/vn/types.ts`:
 
 - `dialog`, `narration` – display text via i18n key (`{flag}` and `{flag:money}` are filled from the chapter's flags)
-- `transaction` – records a journal entry and optionally animates it; with `entry: 'player'` the player enters the entry themselves (retries, hint) and the correct one is recorded when they get it or run out of `attempts`
-- `choice` / `quiz` / `journal_entry_input` – interactive nodes; a choice option can be locked with `requires` + `lockedKey`
-- `number_input` – the player picks a number (min/max as expressions, live `preview`) and it is stored in a flag
-- `calc` – computes an expression (`CalcExpr`: flags, account balances, `add sub mul div min max`, `table`) into a flag
+- `transaction` – records a journal entry and optionally animates it; with `entry: 'player'` the player picks the entry from a list (`entries` is the right one, `distractors` the wrong ones; a wrong pick shows the hint and locks that option) and the correct one is recorded when they get it or run out of `attempts`
+- `choice` / `quiz` / `journal_entry_input` – interactive nodes; a choice option can be locked with `requires` + `lockedKey` (e.g. an amount the cash on hand cannot pay for)
+- `calc` – computes an expression (`CalcExpr`: flags, account balances, `add sub mul div min max`, `table`) into a flag; a `choice` sets the flags for what the player decided, `calc` works out the result
 - `report` – shows BS or P&L panel
 - `character_enter/exit`, `background`, `wait` – scene control
 - `conditional`, `set_flag` – branching logic (conditions include `flag_gte/lte`, `net_income_gte/lte`, `accuracy_gte`, `all`)

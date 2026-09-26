@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { DEPTH, FONT_FAMILY } from '../config/constants';
 import { ART_WIDTH, ART_HEIGHT, VIEW_WIDTH, HUD_HEIGHT, fitViewToWindow, getVNLayout, getViewHeight } from '../config/layout';
-import { ScriptEngine, ScriptEngineCallback } from '../vn/ScriptEngine';
-import { CharacterPosition } from '../vn/types';
-import { getGameStateManager } from '../state/GameStateManager';
+import { PlayerEntryRequest, ScriptEngine, ScriptEngineCallback } from '../vn/ScriptEngine';
+import { ChapterResult, ChapterScript, CharacterPosition, ChoiceView, ResolvedEntry } from '../vn/types';
+import { AccountCategory } from '../models/Account';
+import { GameStateManager, getGameStateManager, setGameStateManager } from '../state/GameStateManager';
 import { SaveLoadManager } from '../state/SaveLoadManager';
 import { getLanguage, setLanguage, t } from '../i18n';
 import { getAudioManager } from '../managers/AudioManager';
@@ -11,6 +12,7 @@ import { SettingsPanel } from '../ui/components/SettingsPanel';
 import { Hud, HUD_COLORS, HudButton } from '../ui/vn/Hud';
 import { VNDialogBox } from '../ui/vn/VNDialogBox';
 import { ChoicePanel } from '../ui/vn/ChoicePanel';
+import { Button } from '../ui/components/Button';
 import { JournalEntryPanel } from '../ui/vn/JournalEntryPanel';
 import { CharacterPortrait } from '../ui/vn/CharacterPortrait';
 import { BackgroundRenderer } from '../ui/vn/BackgroundRenderer';
@@ -52,7 +54,6 @@ import { chapter208 } from '../data/chapters/chapter208';
 import { chapter209 } from '../data/chapters/chapter209';
 import { chapter210 } from '../data/chapters/chapter210';
 import { applyRenderScale } from '../utils/renderScale';
-import { ChapterScript } from '../vn/types';
 
 interface VNSceneData {
   chapterId: number;
@@ -62,6 +63,7 @@ export class VNScene extends Phaser.Scene {
   private scriptEngine!: ScriptEngine;
   private dialogBox!: VNDialogBox;
   private choicePanel!: ChoicePanel;
+  private chapterStartState = '';
   private journalEntryPanel!: JournalEntryPanel;
   private backgroundRenderer!: BackgroundRenderer;
   private transactionAnim!: TransactionAnimation;
@@ -137,8 +139,8 @@ export class VNScene extends Phaser.Scene {
     // are posted. Saves always store this chapter-start snapshot, so "Continue" replays the chapter
     // from the top without double-posting the entries it had already recorded.
     gameState.setCurrentChapter(chapterId);
-    const chapterStartState = gameState.toJSON();
-    SaveLoadManager.autoSave(gameState, chapterStartState);
+    this.chapterStartState = gameState.toJSON();
+    SaveLoadManager.autoSave(gameState, this.chapterStartState);
 
     // Start the chapter
     this.scriptEngine.startChapter(chapterId);
@@ -147,7 +149,7 @@ export class VNScene extends Phaser.Scene {
     this.autoSaveTimer = this.time.addEvent({
       delay: 60000,
       callback: () => {
-        SaveLoadManager.autoSave(gameState, chapterStartState);
+        SaveLoadManager.autoSave(gameState, this.chapterStartState);
       },
       loop: true,
     });
@@ -157,7 +159,7 @@ export class VNScene extends Phaser.Scene {
 
     // Keyboard: S to save
     this.input.keyboard?.on('keydown-S', () => {
-      SaveLoadManager.autoSave(gameState, chapterStartState);
+      SaveLoadManager.autoSave(gameState, this.chapterStartState);
       this.showNotification(getLanguage() === 'ja' ? 'セーブしました' : 'Game Saved');
     });
   }
@@ -209,6 +211,10 @@ export class VNScene extends Phaser.Scene {
             this.scriptEngine.advance(node.next as string);
           }
         }
+      },
+
+      onPlayerTransaction: request => {
+        this.askPlayerEntry(request, new Set());
       },
 
       onReport: (reportType, message) => {
@@ -302,17 +308,17 @@ export class VNScene extends Phaser.Scene {
         });
       },
 
-      onChapterEnd: (nextChapter, summary) => {
+      onChapterEnd: (nextChapter, summary, result) => {
         this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.hide();
 
-        if (summary) {
+        if (result) {
+          this.showChapterResult(summary, nextChapter, result);
+        } else if (summary) {
           this.showChapterSummary(summary, nextChapter);
-        } else if (nextChapter) {
-          this.scene.start('ChapterTitleScene', { chapterId: nextChapter });
         } else {
-          this.scene.start('MenuScene');
+          this.leaveChapter(nextChapter);
         }
       },
 
@@ -349,12 +355,6 @@ export class VNScene extends Phaser.Scene {
           label: lang === 'ja' ? account.nameJa : account.name,
           type: account.type,
         }));
-        const labelOf = (category: string): string => accounts.find(a => a.category === category)?.label ?? category;
-        const sideText = (side: 'debit' | 'credit'): string =>
-          expectedEntries
-            .filter(entry => (entry[side] ?? 0) > 0)
-            .map(entry => `${labelOf(entry.account)} ${formatMoney(entry[side] as number)}`)
-            .join(lang === 'ja' ? '、' : ', ');
 
         this.journalEntryPanel.show({
           prompt,
@@ -363,7 +363,7 @@ export class VNScene extends Phaser.Scene {
           creditCount: expectedEntries.filter(entry => (entry.credit ?? 0) > 0).length,
           accounts,
           expected: expectedEntries,
-          correctAnswer: `${t('je.debit')} ${sideText('debit')} / ${t('je.credit')} ${sideText('credit')}`,
+          correctAnswer: this.describeEntries(expectedEntries, ' / '),
           onSubmit: entries => this.scriptEngine.submitJournalEntry(entries),
           onClose: isCorrect => {
             this.dialogBox.showNarration(isCorrect ? correctFeedback : incorrectFeedback, () => {
@@ -376,6 +376,59 @@ export class VNScene extends Phaser.Scene {
     };
 
     this.scriptEngine.setCallbacks(callbacks);
+  }
+
+  /** A journal entry as text: the debit side, then the credit side, with the account names of the current language. */
+  private describeEntries(entries: ResolvedEntry[], separator = '\n'): string {
+    const lang = getLanguage();
+    const accounts = getGameStateManager().getAccounts();
+    const labelOf = (category: string): string => {
+      const account = accounts.get(category as AccountCategory);
+      return account ? (lang === 'ja' ? account.nameJa : account.name) : category;
+    };
+    const side = (key: 'debit' | 'credit'): string =>
+      entries
+        .filter(entry => (entry[key] ?? 0) > 0)
+        .map(entry => `${labelOf(entry.account)} ${formatMoney(entry[key] as number)}`)
+        .join(lang === 'ja' ? '\u3001' : ', ');
+    return `${t('je.debit')}: ${side('debit')}${separator}${t('je.credit')}: ${side('credit')}`;
+  }
+
+  /**
+   * The player picks the journal entry of a transaction from a list. A wrong pick is marked, the
+   * hint is shown and they may pick again; when the tries run out the right entry is shown.
+   */
+  private askPlayerEntry(request: PlayerEntryRequest, wrongPicks: Set<number>): void {
+    this.scorecard.close();
+    this.dialogBox.hide();
+
+    const { description, options, correctIndex, hint } = request;
+    const prompt = wrongPicks.size > 0 && hint ? `${description}\n${t('je.hint_label')} ${hint}` : description;
+    const choices: ChoiceView[] = options.map((entries, index) => ({
+      labelKey: '',
+      next: '',
+      label: this.describeEntries(entries),
+      locked: wrongPicks.has(index),
+      lockedText: wrongPicks.has(index) ? t('je.not_this') : undefined,
+    }));
+
+    this.choicePanel.show(prompt, choices, index => {
+      const result = this.scriptEngine.submitPlayerEntry(options[index]);
+      if (!result.done) {
+        wrongPicks.add(index);
+        this.askPlayerEntry(request, wrongPicks);
+        return;
+      }
+
+      getAudioManager().playSFX('transaction');
+      const feedback = result.correct
+        ? t('je.correct')
+        : `${t('je.incorrect')}\n${t('je.correct_answer')} ${this.describeEntries(options[correctIndex], ' / ')}`;
+      this.dialogBox.showNarration(feedback, () => {
+        this.updateScorecard();
+        this.scriptEngine.advance();
+      });
+    });
   }
 
   private addCharacter(characterId: string, position: CharacterPosition, expression?: string): void {
@@ -468,6 +521,129 @@ export class VNScene extends Phaser.Scene {
     this.choicePanel.setSuspended(open);
   }
 
+  private leaveChapter(nextChapter?: number): void {
+    if (nextChapter) {
+      this.scene.start('ChapterTitleScene', { chapterId: nextChapter });
+    } else {
+      this.scene.start('MenuScene');
+    }
+  }
+
+  /** Play the chapter again from its start; the best stars earned so far are kept. */
+  private retryChapter(): void {
+    const chapterId = getGameStateManager().getCurrentChapter();
+    const bestResults = new Map(getGameStateManager().getState().chapterProgress);
+    const restored = GameStateManager.fromJSON(this.chapterStartState);
+    bestResults.forEach((progress, id) => restored.getState().chapterProgress.set(id, progress));
+    setGameStateManager(restored);
+    this.scene.start('VNScene', { chapterId });
+  }
+
+  /** The chapter's result: stars, which goals were met, the summary, and buttons to try again or go on. */
+  private showChapterResult(summary: string | undefined, nextChapter: number | undefined, result: ChapterResult): void {
+    const height = getViewHeight();
+    const depth = DEPTH.TRANSITION;
+    const centerX = VIEW_WIDTH / 2;
+
+    // Fold the report sheet away so it does not show through the overlay
+    this.scorecard.close();
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillRect(0, 0, VIEW_WIDTH, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, VIEW_WIDTH, height), Phaser.Geom.Rectangle.Contains);
+    overlay.setDepth(depth);
+
+    const title = this.add.text(centerX, HUD_HEIGHT + 34, t('result.title'), {
+      fontFamily: FONT_FAMILY,
+      fontSize: '22px',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
+    });
+    title.setOrigin(0.5);
+    title.setDepth(depth + 1);
+
+    // Stars: earned ones pop in one after another
+    const starsY = HUD_HEIGHT + 96;
+    for (let i = 0; i < 3; i++) {
+      const earned = i < result.stars;
+      const star = this.add.text(centerX + (i - 1) * 58, starsY, earned ? '\u2605' : '\u2606', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '46px',
+        color: earned ? '#ffd700' : '#4a4a6a',
+        padding: { top: 4, bottom: 4 },
+      });
+      star.setOrigin(0.5);
+      star.setDepth(depth + 1);
+      star.setAlpha(0);
+      star.setScale(0.3);
+      this.tweens.add({
+        targets: star,
+        alpha: 1,
+        scale: 1,
+        duration: 280,
+        delay: 250 + i * 220,
+        ease: earned ? 'Back.easeOut' : 'Sine.easeOut',
+      });
+    }
+
+    // Which goals were met
+    let y = starsY + 46;
+    for (const goal of result.goals) {
+      const line = this.add.text(32, y, `${goal.met ? '\u2713' : '\u2717'}  ${goal.label}`, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '15px',
+        color: goal.met ? '#4ade80' : '#8a8aa8',
+        wordWrap: { width: VIEW_WIDTH - 64, useAdvancedWrap: true },
+        lineSpacing: 4,
+        padding: { top: 3, bottom: 3 },
+      });
+      line.setDepth(depth + 1);
+      y += line.height + 6;
+    }
+
+    // The chapter summary, as large as fits between the goals and the buttons
+    const buttonsY = height - 46;
+    if (summary) {
+      const summaryText = this.add.text(32, y + 14, summary, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '14px',
+        color: '#c8ccdf',
+        wordWrap: { width: VIEW_WIDTH - 64, useAdvancedWrap: true },
+        lineSpacing: 6,
+        padding: { top: 3, bottom: 3 },
+      });
+      summaryText.setDepth(depth + 1);
+      const room = buttonsY - 34 - summaryText.y;
+      for (const size of [13, 12]) {
+        if (summaryText.height <= room) break;
+        summaryText.setFontSize(size);
+      }
+    }
+
+    const retry = new Button(this, {
+      x: centerX - 84,
+      y: buttonsY,
+      width: 156,
+      height: 48,
+      text: t('result.retry'),
+      fontSize: 15,
+      onClick: () => this.retryChapter(),
+    });
+    retry.setDepth(depth + 2);
+    const next = new Button(this, {
+      x: centerX + 84,
+      y: buttonsY,
+      width: 156,
+      height: 48,
+      text: t(nextChapter ? 'result.next' : 'result.finish'),
+      fontSize: 15,
+      onClick: () => this.leaveChapter(nextChapter),
+    });
+    next.setDepth(depth + 2);
+  }
+
   private showChapterSummary(summary: string, nextChapter?: number): void {
     const lang = getLanguage();
     const height = getViewHeight();
@@ -552,11 +728,7 @@ export class VNScene extends Phaser.Scene {
       summaryText.destroy();
       continueText.destroy();
 
-      if (nextChapter) {
-        this.scene.start('ChapterTitleScene', { chapterId: nextChapter });
-      } else {
-        this.scene.start('MenuScene');
-      }
+      this.leaveChapter(nextChapter);
     };
 
     this.input.keyboard?.on('keydown-SPACE', advance);
