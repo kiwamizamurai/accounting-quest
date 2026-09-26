@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, DEPTH, FONT_FAMILY } from '../../config/constants';
-import { Rect, getSheetRect } from '../../config/layout';
+import { Rect, getSheetRect, getViewHeight } from '../../config/layout';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
@@ -33,6 +33,9 @@ interface Tab {
 }
 
 const ROW_HEIGHT = { header: 34, item: 27, total: 31, grand: 38 };
+// On the shortest screens the rows are packed tighter so a small statement fits without scrolling
+const ROW_HEIGHT_COMPACT = { header: 30, item: 25, total: 28, grand: 34 };
+const COMPACT_VIEW_HEIGHT = 700;
 const HEADER_HEIGHT = 44;
 const SUMMARY_HEIGHT = 74;
 const TAB_WIDTH = 132;
@@ -268,10 +271,11 @@ export class Scorecard extends Phaser.GameObjects.Container {
     const { scene } = this;
     const left = this.bodyRect.x + 10;
     const right = this.bodyRect.x + this.bodyRect.w - 10;
+    const rowHeights = getViewHeight() < COMPACT_VIEW_HEIGHT ? ROW_HEIGHT_COMPACT : ROW_HEIGHT;
     let y = this.bodyRect.y + 4;
 
     for (const row of rows) {
-      const height = ROW_HEIGHT[row.kind];
+      const height = rowHeights[row.kind];
       const center = y + height / 2;
 
       if (row.kind === 'header') {
