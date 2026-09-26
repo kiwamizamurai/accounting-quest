@@ -10,6 +10,10 @@ const BACKGROUNDS: Record<string, BackgroundDrawer> = {
   home: drawHome,
   street: drawStreet,
   office: drawOffice,
+  store: drawStore,
+  warehouse: drawWarehouse,
+  tax_office: drawOffice,
+  factory: drawFactory,
 };
 
 export class BackgroundRenderer extends Phaser.GameObjects.Container {
@@ -377,4 +381,141 @@ function drawOffice(gfx: Phaser.GameObjects.Graphics): void {
   gfx.strokeCircle(GAME_WIDTH / 2, 60, 25);
   gfx.lineBetween(GAME_WIDTH / 2, 60, GAME_WIDTH / 2, 42);
   gfx.lineBetween(GAME_WIDTH / 2, 60, GAME_WIDTH / 2 + 12, 55);
+}
+
+function drawStore(gfx: Phaser.GameObjects.Graphics): void {
+  // Interior wall
+  gfx.fillStyle(0x3b2f2f, 1);
+  gfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // Storefront window
+  gfx.fillStyle(0x87ceeb, 1);
+  gfx.fillRect(570, 70, 180, 170);
+  gfx.lineStyle(4, 0x5a3a1a, 1);
+  gfx.strokeRect(570, 70, 180, 170);
+  gfx.lineBetween(660, 70, 660, 240);
+
+  // Tiled floor
+  const floorY = GAME_HEIGHT * 0.6;
+  for (let y = floorY; y < GAME_HEIGHT; y += 40) {
+    for (let x = 0; x < GAME_WIDTH; x += 40) {
+      gfx.fillStyle(((x + y) / 40) % 2 === 0 ? 0xd9c9a3 : 0xb8a67f, 1);
+      gfx.fillRect(x, y, 40, 40);
+    }
+  }
+
+  // Display shelves with goods
+  const goods = [0xffd700, 0xe25822, 0x4caf50, 0x42a5f5, 0xf5f5f5, 0xab47bc];
+  for (let shelf = 0; shelf < 3; shelf++) {
+    const sy = 110 + shelf * 90;
+    gfx.fillStyle(0x6b4513, 1);
+    gfx.fillRect(40, sy, 340, 10);
+    for (let item = 0; item < 6; item++) {
+      gfx.fillStyle(goods[(item + shelf) % goods.length], 1);
+      gfx.fillRect(56 + item * 52, sy - 26, 30, 26);
+    }
+  }
+
+  // Counter and cash register
+  gfx.fillStyle(0x6b4513, 1);
+  gfx.fillRect(400, GAME_HEIGHT * 0.52, 300, 60);
+  gfx.fillStyle(0x8b5a2b, 1);
+  gfx.fillRect(400, GAME_HEIGHT * 0.52, 300, 8);
+  gfx.fillStyle(0x808080, 1);
+  gfx.fillRect(520, GAME_HEIGHT * 0.52 - 28, 44, 28);
+  gfx.fillStyle(0x22c55e, 1);
+  gfx.fillRect(528, GAME_HEIGHT * 0.52 - 22, 28, 8);
+}
+
+function drawWarehouse(gfx: Phaser.GameObjects.Graphics): void {
+  // Concrete wall and floor
+  gfx.fillStyle(0x2b2b35, 1);
+  gfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  const floorY = GAME_HEIGHT * 0.6;
+  gfx.fillStyle(0x55555f, 1);
+  gfx.fillRect(0, floorY, GAME_WIDTH, GAME_HEIGHT - floorY);
+  gfx.lineStyle(1, 0x3d3d47, 1);
+  for (let x = 0; x < GAME_WIDTH; x += 100) {
+    gfx.lineBetween(x, floorY, x, GAME_HEIGHT);
+  }
+
+  // Roller door
+  gfx.fillStyle(0x6d6d78, 1);
+  gfx.fillRect(300, 60, 200, floorY - 60);
+  gfx.lineStyle(2, 0x4a4a55, 1);
+  for (let y = 72; y < floorY; y += 14) {
+    gfx.lineBetween(300, y, 500, y);
+  }
+
+  // Stacked crates
+  const crate = (x: number, y: number, size: number): void => {
+    gfx.fillStyle(0xb8863b, 1);
+    gfx.fillRect(x, y, size, size);
+    gfx.lineStyle(3, 0x7a5623, 1);
+    gfx.strokeRect(x, y, size, size);
+    gfx.lineBetween(x, y, x + size, y + size);
+    gfx.lineBetween(x + size, y, x, y + size);
+  };
+  crate(40, floorY - 70, 70);
+  crate(110, floorY - 70, 70);
+  crate(75, floorY - 140, 70);
+  crate(590, floorY - 90, 90);
+  crate(680, floorY - 90, 90);
+  crate(635, floorY - 180, 90);
+
+  // Pallet on the floor
+  gfx.fillStyle(0x8b6914, 1);
+  gfx.fillRect(250, floorY + 30, 120, 12);
+  gfx.fillRect(250, floorY + 54, 120, 12);
+}
+
+function drawFactory(gfx: Phaser.GameObjects.Graphics): void {
+  // Dark industrial wall and floor
+  gfx.fillStyle(0x1c1f26, 1);
+  gfx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  const floorY = GAME_HEIGHT * 0.6;
+  gfx.fillStyle(0x3a3d45, 1);
+  gfx.fillRect(0, floorY, GAME_WIDTH, GAME_HEIGHT - floorY);
+
+  // Window with smokestacks
+  gfx.fillStyle(0x3b4a63, 1);
+  gfx.fillRect(60, 60, 220, 130);
+  gfx.fillStyle(0x151a24, 1);
+  gfx.fillRect(110, 100, 24, 90);
+  gfx.fillRect(190, 90, 24, 100);
+  gfx.fillStyle(0x9aa3b2, 0.6);
+  gfx.fillCircle(122, 92, 14);
+  gfx.fillCircle(202, 80, 16);
+  gfx.lineStyle(4, 0x2b303b, 1);
+  gfx.strokeRect(60, 60, 220, 130);
+
+  // Overhead pipe
+  gfx.fillStyle(0x59606e, 1);
+  gfx.fillRect(0, 40, GAME_WIDTH, 12);
+
+  // Machines
+  const machine = (x: number, w: number, h: number): void => {
+    gfx.fillStyle(0x6c7484, 1);
+    gfx.fillRect(x, floorY - h, w, h);
+    gfx.fillStyle(0x4a505c, 1);
+    gfx.fillRect(x, floorY - h, w, 10);
+    gfx.fillStyle(0x22c55e, 1);
+    gfx.fillCircle(x + 16, floorY - h + 28, 5);
+    gfx.fillStyle(0xef4444, 1);
+    gfx.fillCircle(x + 34, floorY - h + 28, 5);
+  };
+  machine(360, 120, 150);
+  machine(620, 130, 190);
+
+  // Conveyor belt with boxes
+  gfx.fillStyle(0x2a2d34, 1);
+  gfx.fillRect(40, floorY + 20, 720, 20);
+  gfx.fillStyle(0x4a505c, 1);
+  for (let x = 60; x < 760; x += 40) {
+    gfx.fillCircle(x, floorY + 44, 6);
+  }
+  gfx.fillStyle(0xc9a24d, 1);
+  for (let x = 90; x < 720; x += 150) {
+    gfx.fillRect(x, floorY, 36, 20);
+  }
 }

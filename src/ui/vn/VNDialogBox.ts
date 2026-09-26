@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION } from '../../config/constants';
+import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN } from '../../config/constants';
 import { getCharacterName } from '../../data/characters';
 
 export class VNDialogBox extends Phaser.GameObjects.Container {
@@ -21,7 +21,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
   private blinkTween?: Phaser.Tweens.Tween;
 
   private boxWidth: number;
-  private boxHeight = 160;
+  private boxHeight = VN_DIALOG_HEIGHT;
   private boxX: number;
   private boxY: number;
   private padding = 20;
@@ -32,7 +32,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     this.typingSpeed = ANIMATION.DIALOG_SPEED;
     this.boxWidth = GAME_WIDTH - 40;
     this.boxX = 20;
-    this.boxY = GAME_HEIGHT - this.boxHeight - 20;
+    this.boxY = GAME_HEIGHT - this.boxHeight - VN_DIALOG_MARGIN;
 
     // Background
     this.background = scene.add.graphics();
@@ -56,14 +56,14 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     // Dialog text
     this.dialogText = scene.add.text(
       this.boxX + this.padding,
-      this.boxY + this.padding + 14,
+      this.boxY + 14,
       '',
       {
         fontFamily: '"Courier New", monospace',
-        fontSize: '17px',
+        fontSize: '16px',
         color: '#ffffff',
         wordWrap: { width: this.boxWidth - this.padding * 2, useAdvancedWrap: true },
-        lineSpacing: 8,
+        lineSpacing: 4,
         padding: { top: 4, bottom: 4 },
       }
     );
@@ -72,7 +72,7 @@ export class VNDialogBox extends Phaser.GameObjects.Container {
     // Continue indicator
     this.continueIndicator = scene.add.text(
       this.boxX + this.boxWidth - 36,
-      this.boxY + this.boxHeight - 30,
+      this.boxY + this.boxHeight - 28,
       '>>',
       {
         fontFamily: '"Courier New", monospace',

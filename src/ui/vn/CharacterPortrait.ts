@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CharacterExpression } from '../../vn/types';
 import { CHARACTERS } from '../../data/characters';
-import { GAME_HEIGHT } from '../../config/constants';
+import { GAME_HEIGHT, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN } from '../../config/constants';
 
 const PORTRAIT_HEIGHT = 240;
 
@@ -11,7 +11,8 @@ export class CharacterPortrait extends Phaser.GameObjects.Container {
   private portraitGraphics: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, characterId: string, x: number) {
-    super(scene, x, GAME_HEIGHT - 180 - PORTRAIT_HEIGHT / 2);
+    // Stand right on top of the dialog box
+    super(scene, x, GAME_HEIGHT - VN_DIALOG_HEIGHT - VN_DIALOG_MARGIN - PORTRAIT_HEIGHT / 2);
     this.characterId = characterId;
 
     this.portraitGraphics = scene.add.graphics();

@@ -56,6 +56,12 @@ export const SCENES = {
   VN: 'VNScene',
 } as const;
 
+// VN dialog box geometry. The BS/PL panels (Scorecard) must stay above VN_DIALOG_TOP.
+export const VN_DIALOG_HEIGHT = 112;
+export const VN_DIALOG_MARGIN = 14; // gap between the box and the bottom edge
+export const VN_DIALOG_TAG_HEIGHT = 22; // speaker name tag sitting on top of the box
+export const VN_DIALOG_TOP = GAME_HEIGHT - VN_DIALOG_HEIGHT - VN_DIALOG_MARGIN - VN_DIALOG_TAG_HEIGHT;
+
 // Depth Layers
 export const DEPTH = {
   GROUND: 0,
