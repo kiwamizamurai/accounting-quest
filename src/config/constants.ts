@@ -56,6 +56,9 @@ export const SCENES = {
   VN: 'VNScene',
 } as const;
 
+// Texture key of the game icon (public/favicon.svg), loaded by BootScene and shown on the title screen
+export const TITLE_ICON_KEY = 'title-icon';
+
 // Readable Japanese UI font. These are the fonts already installed on the player's device
 // (Hiragino Sans on Apple, Noto Sans JP on Android/Linux, Yu Gothic / Meiryo on Windows), so no
 // font file is bundled and there is no licence to manage.

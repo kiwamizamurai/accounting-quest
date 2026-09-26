@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH, FONT_FAMILY } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH, FONT_FAMILY, TITLE_ICON_KEY } from '../config/constants';
 import { Button } from '../ui/components/Button';
 import { getLanguage, setLanguage, t } from '../i18n';
 import { SaveLoadManager } from '../state/SaveLoadManager';
@@ -45,8 +45,23 @@ export class TitleScene extends Phaser.Scene {
 
     const lang = getLanguage();
 
+    // Icon: the pixel-art lemon slice split by a T-account
+    if (this.textures.exists(TITLE_ICON_KEY)) {
+      const icon = this.add.image(GAME_WIDTH / 2, 68, TITLE_ICON_KEY);
+      icon.setDisplaySize(96, 96);
+      this.uiElements.push(icon);
+      this.tweens.add({
+        targets: icon,
+        y: 74,
+        duration: 2400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
     // Title
-    const title = this.add.text(GAME_WIDTH / 2, 120, t('menu.title'), {
+    const title = this.add.text(GAME_WIDTH / 2, 150, t('menu.title'), {
       fontFamily: FONT_FAMILY,
       fontSize: '36px',
       color: '#ffd700',
@@ -58,7 +73,7 @@ export class TitleScene extends Phaser.Scene {
     // Subtitle
     const subtitle = this.add.text(
       GAME_WIDTH / 2,
-      170,
+      196,
       lang === 'ja' ? 'レモネードスタンドで学ぶ会計入門' : 'Learn Accounting Through a Lemonade Stand',
       {
         fontFamily: FONT_FAMILY,
@@ -73,7 +88,7 @@ export class TitleScene extends Phaser.Scene {
     // Bobbing animation for title
     this.tweens.add({
       targets: title,
-      y: 125,
+      y: 155,
       duration: 2000,
       yoyo: true,
       repeat: -1,
@@ -83,7 +98,7 @@ export class TitleScene extends Phaser.Scene {
     // Visual novel style tagline
     const tagline = this.add.text(
       GAME_WIDTH / 2,
-      210,
+      232,
       lang === 'ja' ? '~ ビジュアルノベル ~' : '~ A Visual Novel ~',
       {
         fontFamily: FONT_FAMILY,
