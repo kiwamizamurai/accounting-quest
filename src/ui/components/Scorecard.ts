@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH } from '../../config/constants';
+import { COLORS, DEPTH, GAME_WIDTH, VN_DIALOG_TOP } from '../../config/constants';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
@@ -18,8 +18,13 @@ export class Scorecard extends Phaser.GameObjects.Container {
   private readonly panelX = 30;
   private readonly halfWidth = 370; // panelWidth / 2
   private readonly basePanelY = 50;
-  private readonly lineHeight = 17;
+  private readonly lineHeight = 18;
   private readonly itemPadding = 8;
+  private readonly panelGap = 10; // between the BS and PL panels when both are open
+  private readonly minPanelScale = 0.5;
+
+  // Holds both panel bodies so they can be scaled down together to fit above the dialog box
+  private panelGroup: Phaser.GameObjects.Container;
 
   // ---- BS panel ----
   private bsBodyContainer: Phaser.GameObjects.Container;
@@ -30,6 +35,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
   private bsRightContainer: Phaser.GameObjects.Container;
   private bsBalanceIndicator: Phaser.GameObjects.Text;
   private lastBsHeight = 200;
+  private lastPlHeight = 0;
   private isBsExpanded = false;
 
   // ---- PL panel ----
@@ -58,9 +64,12 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
     const lang = getLanguage();
 
+    this.panelGroup = scene.add.container(0, 0);
+    this.add(this.panelGroup);
+
     // === BS body ===
     this.bsBodyContainer = scene.add.container(0, 0);
-    this.add(this.bsBodyContainer);
+    this.panelGroup.add(this.bsBodyContainer);
 
     this.bsBackground = scene.add.graphics();
     this.bsBodyContainer.add(this.bsBackground);
@@ -105,7 +114,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
     // === PL body ===
     this.plBodyContainer = scene.add.container(0, 0);
-    this.add(this.plBodyContainer);
+    this.panelGroup.add(this.plBodyContainer);
 
     this.plBackground = scene.add.graphics();
     this.plBodyContainer.add(this.plBackground);
@@ -293,8 +302,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
   ): void {
     const labelText = this.scene.add.text(colX + this.itemPadding + 8, y, label, {
       fontFamily: '"Courier New", monospace',
-      fontSize: '11px',
-      color: '#cccccc',
+      fontSize: '12px',
+      color: '#eeeeee',
       padding: { top: 4, bottom: 4 },
     });
     container.add(labelText);
@@ -305,7 +314,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       formatMoney(amount),
       {
         fontFamily: '"Courier New", monospace',
-        fontSize: '11px',
+        fontSize: '12px',
+        fontStyle: 'bold',
         color: Phaser.Display.Color.IntegerToColor(color).rgba,
         padding: { top: 4, bottom: 4 },
       }
@@ -534,6 +544,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
     // Resize background
     this.lastBsHeight = indicatorY - this.basePanelY + 22;
     this.drawPanelBg(this.bsBackground, this.bsDivider, this.lastBsHeight);
+    this.fitPanels();
 
     // Reposition PL below if BS is open
     this.repositionPlPanel();
@@ -652,6 +663,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     // Resize background
     const plHeight = bottomY - this.basePanelY + 8;
     this.drawPanelBg(this.plBackground, this.plDivider, plHeight);
+    this.lastPlHeight = plHeight;
+    this.fitPanels();
   }
 
   // =========================================================================
@@ -661,14 +674,36 @@ export class Scorecard extends Phaser.GameObjects.Container {
   toggle(): void {
     this.isBsExpanded = !this.isBsExpanded;
     this.bsBodyContainer.setVisible(this.isBsExpanded);
-    this.repositionPlPanel();
+    this.fitPanels();
     this.drawToggleButtons();
   }
 
   togglePl(): void {
     this.isPlExpanded = !this.isPlExpanded;
     this.plBodyContainer.setVisible(this.isPlExpanded);
+    this.fitPanels();
     this.drawToggleButtons();
+  }
+
+  /**
+   * Keep the open panels above the VN dialog box. With both BS and PL open (and more accounts in
+   * Lv2/Lv3) they are taller than the space above the dialog, so the whole group is scaled down
+   * until it fits: the top edge stays at basePanelY and the horizontal centre stays put.
+   */
+  private fitPanels(): void {
+    this.repositionPlPanel();
+
+    const bsHeight = this.isBsExpanded ? this.lastBsHeight : 0;
+    const plHeight = this.isPlExpanded ? this.lastPlHeight : 0;
+    const total = bsHeight + plHeight + (bsHeight > 0 && plHeight > 0 ? this.panelGap : 0);
+    const available = VN_DIALOG_TOP - this.basePanelY;
+    const scale = total > available ? Math.max(this.minPanelScale, available / total) : 1;
+
+    this.panelGroup.setScale(scale);
+    this.panelGroup.setPosition(
+      (this.panelX + this.panelWidth / 2) * (1 - scale),
+      this.basePanelY * (1 - scale)
+    );
   }
 
   /**
@@ -677,7 +712,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
    */
   private repositionPlPanel(): void {
     if (this.isBsExpanded) {
-      this.plBodyContainer.setY(this.lastBsHeight + 10);
+      this.plBodyContainer.setY(this.lastBsHeight + this.panelGap);
     } else {
       this.plBodyContainer.setY(0);
     }
