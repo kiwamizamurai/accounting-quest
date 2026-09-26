@@ -20,6 +20,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   private choiceContainers: Phaser.GameObjects.Container[] = [];
   private onSelect?: (index: number) => void;
   private selectedIndex = -1;
+  private correctIndex?: number;
   private suspended = false;
 
   constructor(scene: Phaser.Scene) {
@@ -44,12 +45,17 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  show(prompt: string, choices: ChoiceOption[], onSelect: (index: number) => void): void {
+  /**
+   * Show the question and one button per answer. For a quiz, pass `correctIndex`: after the player
+   * answers, the right answer turns green and a wrong pick turns red before the panel closes.
+   */
+  show(prompt: string, choices: ChoiceOption[], onSelect: (index: number) => void, correctIndex?: number): void {
     this.clearChoices();
     // Remove previous keyboard listeners before adding new ones
     this.removeKeyboard();
 
     this.onSelect = onSelect;
+    this.correctIndex = correctIndex;
     this.selectedIndex = 0;
     this.build(prompt, choices.map(choice => t(choice.labelKey)));
 
@@ -236,29 +242,72 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   };
 
   private selectChoice(index: number): void {
-    // Flash animation
     const container = this.choiceContainers[index];
-    if (container) {
-      // Only the first tap counts while the flash plays
-      this.removeKeyboard();
-      for (const other of this.choiceContainers) {
-        other.each((child: Phaser.GameObjects.GameObject) => {
-          if (child.input) child.disableInteractive();
-        });
+    if (!container) return;
+
+    // Only the first tap counts while the answer is shown
+    this.removeKeyboard();
+    for (const other of this.choiceContainers) {
+      other.each((child: Phaser.GameObjects.GameObject) => {
+        if (child.input) child.disableInteractive();
+      });
+    }
+
+    const finish = (): void => {
+      if (this.onSelect) {
+        this.onSelect(index);
       }
+      this.hide();
+    };
+
+    if (this.correctIndex === undefined) {
+      // Flash animation
       this.scene.tweens.add({
         targets: container,
         alpha: 0.6,
         duration: 100,
         yoyo: true,
-        onComplete: () => {
-          if (this.onSelect) {
-            this.onSelect(index);
-          }
-          this.hide();
-        },
+        onComplete: finish,
       });
+      return;
     }
+
+    // Quiz: show which answer was right before moving on
+    this.choiceContainers.forEach((other, i) => {
+      if (i === this.correctIndex) {
+        this.markResult(other, 'correct');
+      } else if (i === index) {
+        this.markResult(other, 'wrong');
+      } else {
+        other.setAlpha(0.45);
+      }
+    });
+    this.scene.time.delayedCall(1100, finish);
+  }
+
+  private markResult(container: Phaser.GameObjects.Container, result: 'correct' | 'wrong'): void {
+    const bg = container.getData('bg') as Phaser.GameObjects.Graphics;
+    const label = container.getData('label') as Phaser.GameObjects.Text;
+    const width = container.getData('width') as number;
+    const height = container.getData('height') as number;
+    const color = result === 'correct' ? 0x22c55e : 0xef4444;
+
+    bg.clear();
+    bg.fillStyle(result === 'correct' ? 0x173d27 : 0x4a1f26, 1);
+    bg.fillRoundedRect(0, 0, width, height, 10);
+    bg.lineStyle(2, color, 1);
+    bg.strokeRoundedRect(0, 0, width, height, 10);
+    label.setColor('#ffffff');
+
+    const mark = this.scene.add.text(width - 16, height / 2, result === 'correct' ? '\u25CB' : '\u2715', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '20px',
+      color: result === 'correct' ? '#22c55e' : '#ef4444',
+      fontStyle: 'bold',
+      padding: { top: 4, bottom: 4 },
+    });
+    mark.setOrigin(1, 0.5);
+    container.add(mark);
   }
 
   private removeKeyboard(): void {

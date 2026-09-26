@@ -319,7 +319,7 @@ export class VNScene extends Phaser.Scene {
         }
       },
 
-      onQuiz: (question, options, _correctIndex, correctFeedback, incorrectFeedback) => {
+      onQuiz: (question, options, correctIndex, correctFeedback, incorrectFeedback) => {
         this.scorecard.close();
         this.dialogBox.hide();
         this.choicePanel.show(
@@ -335,7 +335,8 @@ export class VNScene extends Phaser.Scene {
               this.updateScorecard();
               this.scriptEngine.advance();
             });
-          }
+          },
+          correctIndex
         );
       },
 

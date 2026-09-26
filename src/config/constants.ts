@@ -25,7 +25,7 @@ export const COLORS = {
 // Animation
 export const ANIMATION = {
   WALK_SPEED: 6,
-  DIALOG_SPEED: 50,
+  DIALOG_SPEED: 30,
   FADE_DURATION: 500,
 } as const;
 
