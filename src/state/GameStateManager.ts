@@ -1,6 +1,14 @@
 import { GameState, createInitialGameState } from '../models/GameState';
-import { Account, AccountCategory, ALL_ACCOUNT_DEFS, createAccount, getAccountDefsForLevel } from '../models/Account';
-import { JournalEntry, GameDate } from '../models/Transaction';
+import {
+  Account,
+  AccountCategory,
+  ALL_ACCOUNT_DEFS,
+  createAccount,
+  getAccountDefsForLevel,
+  isDebitIncrease,
+  isValidAccountCategory,
+} from '../models/Account';
+import { BusinessEventType, JournalEntry, GameDate, TransactionLine, createJournalEntry } from '../models/Transaction';
 import { AccountingEngine } from '../engine/accounting/AccountingEngine';
 import { TransactionProcessor } from '../engine/accounting/TransactionProcessor';
 import { getEventManager } from '../engine/events/EventManager';
@@ -131,6 +139,61 @@ export class GameStateManager {
     };
   }
 
+  /**
+   * Start a new period from opening balances (by account): every account is reset to zero, the
+   * balances are posted as a single entry, and retained earnings absorbs the difference so the
+   * books balance. Income statement accounts start at zero.
+   */
+  resetBooks(opening: Partial<Record<string, number>>): void {
+    for (const account of this.state.accounts.values()) {
+      account.balance = 0;
+    }
+    // The accounting engine shares this array, so it is emptied in place
+    this.state.journalEntries.length = 0;
+
+    const lines: TransactionLine[] = [];
+    for (const [category, balance] of Object.entries(opening)) {
+      const account = isValidAccountCategory(category) ? this.state.accounts.get(category) : undefined;
+      if (!account || !balance) {
+        if (!account) {
+          console.error(`GameStateManager: opening balance for unknown account "${category}"`);
+        }
+        continue;
+      }
+      const onDebitSide = isDebitIncrease(account.type) === balance > 0;
+      const amount = Math.abs(balance);
+      lines.push({
+        accountCategory: account.category,
+        debit: onDebitSide ? amount : 0,
+        credit: onDebitSide ? 0 : amount,
+      });
+    }
+
+    const difference = lines.reduce((sum, line) => sum + line.debit - line.credit, 0);
+    if (difference !== 0) {
+      lines.push({
+        accountCategory: AccountCategory.RETAINED_EARNINGS,
+        debit: difference < 0 ? -difference : 0,
+        credit: difference > 0 ? difference : 0,
+      });
+    }
+    if (lines.length === 0) return;
+
+    const entry = createJournalEntry(
+      `OPENING-${Date.now()}`,
+      this.getCurrentDate(),
+      'Opening balances',
+      '期首残高',
+      lines,
+      BusinessEventType.VN_SCRIPT_TRANSACTION,
+      this.state.player.currentChapter
+    );
+    const result = this.processTransaction(entry);
+    if (!result.success) {
+      console.error(`GameStateManager: opening balances failed: ${result.error}`);
+    }
+  }
+
   getTransactionProcessor(): TransactionProcessor {
     return this.transactionProcessor;
   }
@@ -236,6 +299,22 @@ export class GameStateManager {
 
   getChapterProgress(chapterId: number): ChapterProgress | undefined {
     return this.state.chapterProgress.get(chapterId);
+  }
+
+  /** Record the stars earned in a chapter; the best result over all attempts is kept. */
+  setChapterResult(chapter: number, stars: number, maxStars: number): void {
+    const previous = this.state.chapterProgress.get(chapter);
+    this.state.chapterProgress.set(chapter, {
+      chapterId: chapter,
+      started: true,
+      completed: true,
+      questsCompleted: previous?.questsCompleted ?? 0,
+      totalQuests: previous?.totalQuests ?? 0,
+      conceptsLearned: previous?.conceptsLearned ?? [],
+      score: Math.max(previous?.score ?? 0, stars),
+      maxScore: maxStars,
+    });
+    this.markUpdated();
   }
 
   // ===== Concept Learning =====

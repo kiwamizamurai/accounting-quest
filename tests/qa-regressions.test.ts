@@ -32,6 +32,7 @@ import { GameStateManager } from '../src/state/GameStateManager';
 import { SaveLoadManager } from '../src/state/SaveLoadManager';
 import { setLanguage } from '../src/i18n';
 import { formatMoney, formatAmount } from '../src/utils/MoneyFormatter';
+import { CalcExpr, ChapterScript, EntryDef } from '../src/vn/types';
 
 const testDate: GameDate = { year: 1, month: 1, day: 1 };
 
@@ -55,7 +56,7 @@ const accountLevels = new Map(ALL_ACCOUNT_DEFS.map(def => [def.category as strin
 
 interface Posting {
   nodeId: string;
-  entries: { account: string; debit?: number; credit?: number }[];
+  entries: EntryDef[];
 }
 
 /** Collect every `entries` array (transactions, choice effects, ...) with the id of its node. */
@@ -72,6 +73,51 @@ function collectPostings(value: unknown, nodeId = '', out: Posting[] = []): Post
     Object.values(obj).forEach(v => collectPostings(v, id, out));
   }
   return out;
+}
+
+/** The flags a chapter computes with exactly one `calc` node; those can be expanded when comparing entries. */
+function calcDefinitions(script: ChapterScript): Map<string, CalcExpr> {
+  const found = new Map<string, CalcExpr[]>();
+  for (const node of script.nodes) {
+    if (node.type === 'calc') found.set(node.set, [...(found.get(node.set) ?? []), node.expr]);
+  }
+  return new Map([...found].filter(([, exprs]) => exprs.length === 1).map(([flag, exprs]) => [flag, exprs[0]]));
+}
+
+/** An amount as a sum of terms (a constant under '' plus flags or opaque expressions), so two totals can be compared. */
+function linearForm(expr: CalcExpr, calcs: Map<string, CalcExpr>, expanding: string[] = []): Map<string, number> {
+  const out = new Map<string, number>();
+  const addForm = (form: Map<string, number>, factor: number): void =>
+    form.forEach((value, key) => out.set(key, (out.get(key) ?? 0) + value * factor));
+
+  if (typeof expr === 'number') {
+    out.set('', expr);
+  } else if ('flag' in expr) {
+    const definition = calcs.get(expr.flag);
+    if (definition && !expanding.includes(expr.flag)) {
+      addForm(linearForm(definition, calcs, [...expanding, expr.flag]), 1);
+    } else {
+      out.set(`flag:${expr.flag}`, 1);
+    }
+  } else if ('op' in expr && (expr.op === 'add' || expr.op === 'sub')) {
+    expr.args.forEach((arg, index) => addForm(linearForm(arg, calcs, expanding), index > 0 && expr.op === 'sub' ? -1 : 1));
+  } else if ('op' in expr && expr.op === 'mul' && expr.args.filter(arg => typeof arg !== 'number').length <= 1) {
+    const factor = expr.args.filter((arg): arg is number => typeof arg === 'number').reduce((product, n) => product * n, 1);
+    const variable = expr.args.find(arg => typeof arg !== 'number');
+    addForm(variable === undefined ? new Map([['', 1]]) : linearForm(variable, calcs, expanding), factor);
+  } else {
+    out.set(`expr:${JSON.stringify(expr)}`, 1);
+  }
+  return out;
+}
+
+function isBalanced(entries: EntryDef[], calcs: Map<string, CalcExpr>): boolean {
+  const net = new Map<string, number>();
+  for (const { debit, credit } of entries) {
+    if (debit !== undefined) linearForm(debit, calcs).forEach((v, k) => net.set(k, (net.get(k) ?? 0) + v));
+    if (credit !== undefined) linearForm(credit, calcs).forEach((v, k) => net.set(k, (net.get(k) ?? 0) - v));
+  }
+  return [...net.values()].every(value => value === 0);
 }
 
 describe('Chapter data', () => {
@@ -93,10 +139,23 @@ describe('Chapter data', () => {
   });
 
   it.each(chapters.map(c => [c.id, c] as const))('chapter %i has balanced transactions', (_id, chapter) => {
+    const calcs = calcDefinitions(chapter.script as ChapterScript);
     const unbalanced = collectPostings(chapter.script)
-      .filter(({ entries }) => entries.reduce((s, e) => s + (e.debit ?? 0), 0) !== entries.reduce((s, e) => s + (e.credit ?? 0), 0))
+      .filter(({ entries }) => !isBalanced(entries, calcs))
       .map(({ nodeId }) => nodeId);
     expect(unbalanced).toEqual([]);
+  });
+
+  it('compares entries with flag amounts by expanding the flags a chapter calculates', () => {
+    const calcs = new Map<string, CalcExpr>([['repay', { op: 'add', args: [{ flag: 'loan' }, { flag: 'interest' }] }]]);
+    const repayment = (cash: EntryDef): EntryDef[] => [
+      { account: 'LOANS_PAYABLE', debit: { flag: 'loan' } },
+      { account: 'INTEREST_EXPENSE', debit: { flag: 'interest' } },
+      cash,
+    ];
+    expect(isBalanced(repayment({ account: 'CASH', credit: { flag: 'repay' } }), calcs)).toBe(true);
+    expect(isBalanced(repayment({ account: 'CASH', credit: { flag: 'loan' } }), calcs)).toBe(false);
+    expect(isBalanced([{ account: 'CASH', debit: 500 }, { account: 'SALES_REVENUE', credit: { flag: 'sales' } }], calcs)).toBe(false);
   });
 
   it('makes the tax expense account available from Lv1', () => {
