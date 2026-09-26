@@ -35,3 +35,7 @@ coverage/
 # Junie
 .junie/memory/
 .junie/.onboarding_migrated
+
+# Playwright
+test-results/
+playwright-report/

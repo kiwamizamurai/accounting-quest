@@ -1,0 +1,41 @@
+name: Accounting / content error
+description: A wrong journal entry, a misleading explanation, or a quiz with the wrong answer
+title: "[Content] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping keep the lessons accurate.
+  - type: input
+    id: chapter
+    attributes:
+      label: Level and chapter
+      placeholder: Lv1 Ch.6
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of content?
+      options:
+        - Journal entry / transaction
+        - Quiz or choice answer
+        - Explanation in dialog or narration
+        - Balance sheet / income statement / cash flow figure
+        - Translation (Japanese / English)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: whats-wrong
+    attributes:
+      label: What is wrong?
+      description: Quote the text or describe the entry, and say where it appears.
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: What should it be?
+      description: Include the correct debit and credit accounts or the correct explanation. A reference (textbook, standard, official guidance) helps.

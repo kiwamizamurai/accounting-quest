@@ -1,0 +1,43 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start Level 1, Chapter 3
+        2. Advance to ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where in the game?
+      description: Level and chapter (for example "Lv1 Ch.3"), or the screen (title, level select, ...).
+  - type: dropdown
+    id: language
+    attributes:
+      label: Game language
+      options:
+        - Japanese
+        - English
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 130 on macOS 15
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors or screenshots
+      description: Paste any errors from the browser console, or drag in a screenshot.

@@ -1,7 +1,7 @@
 {
   "name": "accounting-game",
   "version": "1.0.0",
-  "description": "RPG-style accounting learning game - Learn accounting through a pixel art adventure",
+  "description": "A visual novel-style educational game that teaches double-entry bookkeeping through running a lemonade stand",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,13 +16,17 @@
   },
   "keywords": [
     "accounting",
+    "bookkeeping",
+    "double-entry-bookkeeping",
     "education",
+    "educational-game",
     "game",
+    "visual-novel",
+    "lemonade",
     "phaser",
-    "rpg",
-    "pixel-art"
+    "typescript"
   ],
-  "author": "",
+  "author": "kiwamizamurai (https://github.com/kiwamizamurai)",
   "license": "MIT",
   "dependencies": {
     "phaser": "^3.90.0"
@@ -36,5 +40,17 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
-  }
+  },
+  "homepage": "https://kiwamizamurai.github.io/accounting-quest/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiwamizamurai/accounting-quest.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kiwamizamurai/accounting-quest/issues"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "private": true
 }
