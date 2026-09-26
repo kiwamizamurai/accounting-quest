@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_DIALOG_TOP } from '../../config/constants';
+import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_CHOICE_TOP, VN_DIALOG_TOP } from '../../config/constants';
+import { CHOICE_PANEL_HIDDEN, CHOICE_PANEL_SHOWN } from '../vn/ChoicePanel';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
@@ -25,6 +26,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
   private panelX = 30;
   private halfWidth = 370; // panelWidth / 2
   private layout: 'stacked' | 'side' = 'stacked';
+  private choiceOpen = false; // a choice / quiz prompt is on screen
   private lastBalanceSheet?: BalanceSheet;
   private lastIncomeStatement?: IncomeStatement;
   private readonly basePanelY = 50;
@@ -202,6 +204,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     scene.add.existing(this);
 
     scene.scale.on('resize', this.onResize, this);
+    scene.events.on(CHOICE_PANEL_SHOWN, this.onChoiceShown, this);
+    scene.events.on(CHOICE_PANEL_HIDDEN, this.onChoiceHidden, this);
 
     // Start collapsed
     this.bsBodyContainer.setVisible(false);
@@ -720,6 +724,16 @@ export class Scorecard extends Phaser.GameObjects.Container {
     return this.scene.scale.displaySize.width < Scorecard.COMPACT_DISPLAY_WIDTH;
   }
 
+  private onChoiceShown(): void {
+    this.choiceOpen = true;
+    this.fitPanels();
+  }
+
+  private onChoiceHidden(): void {
+    this.choiceOpen = false;
+    this.fitPanels();
+  }
+
   private onResize(): void {
     if (this.isCompactDisplay() && this.isBsExpanded && this.isPlExpanded) {
       this.isPlExpanded = false;
@@ -772,7 +786,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     const plHeight = this.isPlExpanded ? this.lastPlHeight : 0;
     // Side by side the panels share the height; stacked (only one is open) it is that panel's height
     const total = this.layout === 'side' ? Math.max(bsHeight, plHeight) : bsHeight + plHeight;
-    const bottom = compact ? GAME_HEIGHT - 12 : VN_DIALOG_TOP;
+    // A choice / quiz prompt sits in the lower half, so the panels shrink to stay above it
+    const bottom = this.choiceOpen ? VN_CHOICE_TOP : compact ? GAME_HEIGHT - 12 : VN_DIALOG_TOP;
     const available = bottom - this.basePanelY;
     const scale = total > available ? Math.max(this.minPanelScale, available / total) : 1;
 
@@ -811,6 +826,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       this.scene.input.keyboard?.off('keydown-B', this.onKeyB);
       this.scene.input.keyboard?.off('keydown-P', this.onKeyP);
       this.scene.scale.off('resize', this.onResize, this);
+      this.scene.events.off(CHOICE_PANEL_SHOWN, this.onChoiceShown, this);
+      this.scene.events.off(CHOICE_PANEL_HIDDEN, this.onChoiceHidden, this);
     }
     super.destroy();
   }
