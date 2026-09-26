@@ -35,7 +35,11 @@ const nodes: ScriptNode[] = [
   { id: 'dialog_eod_4', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_4', expression: 'normal', next: 'dialog_eod_5' },
   { id: 'dialog_eod_5', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_eod_5', expression: 'thinking', next: 'show_final_report' },
   { id: 'show_final_report', type: 'report', reportType: 'balance_sheet', messageKey: 'ch2.show_final_report.msg', next: 'show_final_pl' },
-  { id: 'show_final_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch2.show_final_pl.msg', next: 'dialog_final' },
+  { id: 'show_final_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch2.show_final_pl.msg', next: 'dialog_books_1' },
+  { id: 'dialog_books_1', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_books_1', expression: 'normal', next: 'dialog_books_2' },
+  { id: 'dialog_books_2', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_books_2', expression: 'thinking', next: 'dialog_books_3' },
+  { id: 'dialog_books_3', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_books_3', expression: 'normal', next: 'quiz_books' },
+  { id: 'quiz_books', type: 'quiz', questionKey: 'ch2.quiz_books.question', options: [{ labelKey: 'ch2.quiz_books.option_0' }, { labelKey: 'ch2.quiz_books.option_1' }, { labelKey: 'ch2.quiz_books.option_2' }], correctIndex: 1, correctFeedbackKey: 'ch2.quiz_books.correct', incorrectFeedbackKey: 'ch2.quiz_books.incorrect', expReward: 10, next: 'dialog_final' },
   { id: 'dialog_final', type: 'dialog', speaker: 'mentor', textKey: 'ch2.dialog_final', expression: 'happy', next: 'chapter_end' },
   { id: 'chapter_end', type: 'chapter_end', nextChapter: 3, summaryKey: 'ch2.chapter_end.summary' },
 ];

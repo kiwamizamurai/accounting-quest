@@ -62,6 +62,10 @@ export const VN_DIALOG_MARGIN = 14; // gap between the box and the bottom edge
 export const VN_DIALOG_TAG_HEIGHT = 22; // speaker name tag sitting on top of the box
 export const VN_DIALOG_TOP = GAME_HEIGHT - VN_DIALOG_HEIGHT - VN_DIALOG_MARGIN - VN_DIALOG_TAG_HEIGHT;
 
+// VN choice / quiz prompt (ChoicePanel). While it is shown the BS/PL panels stay above VN_CHOICE_TOP.
+export const VN_CHOICE_PROMPT_Y = GAME_HEIGHT - 240;
+export const VN_CHOICE_TOP = VN_CHOICE_PROMPT_Y - 18;
+
 // Depth Layers
 export const DEPTH = {
   GROUND: 0,

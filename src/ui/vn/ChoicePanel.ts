@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
-import { DEPTH, GAME_WIDTH, GAME_HEIGHT } from '../../config/constants';
+import { DEPTH, GAME_WIDTH, GAME_HEIGHT, VN_CHOICE_PROMPT_Y } from '../../config/constants';
 import { ChoiceOption } from '../../vn/types';
 import { t } from '../../i18n';
+
+/** Scene events, so the BS/PL panels (Scorecard) can keep clear of the prompt while it is shown. */
+export const CHOICE_PANEL_SHOWN = 'choicepanel:shown';
+export const CHOICE_PANEL_HIDDEN = 'choicepanel:hidden';
 
 export class ChoicePanel extends Phaser.GameObjects.Container {
   private promptText: Phaser.GameObjects.Text;
@@ -12,7 +16,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.promptText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 240, '', {
+    this.promptText = scene.add.text(GAME_WIDTH / 2, VN_CHOICE_PROMPT_Y, '', {
       fontFamily: '"Courier New", monospace',
       fontSize: '18px',
       color: '#ffd700',
@@ -68,9 +72,13 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
 
     this.updateHighlight();
     this.setVisible(true);
+    this.scene.events.emit(CHOICE_PANEL_SHOWN);
   }
 
   hide(): void {
+    if (this.visible) {
+      this.scene.events.emit(CHOICE_PANEL_HIDDEN);
+    }
     this.setVisible(false);
     this.clearChoices();
     this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
