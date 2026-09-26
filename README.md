@@ -8,7 +8,6 @@
 A visual novel-style educational game built with Phaser 3 and TypeScript.
 
 [![Unit Tests](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/test.yml?branch=main&label=Unit%20Tests&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/test.yml)
-[![E2E Tests](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/e2e.yml?branch=main&label=E2E%20Tests&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/e2e.yml)
 [![Deploy](https://img.shields.io/github/actions/workflow/status/kiwamizamurai/accounting-quest/deploy.yml?branch=main&label=Deploy&style=flat-square&labelColor=1a1a2e)](https://github.com/kiwamizamurai/accounting-quest/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square&labelColor=1a1a2e)](LICENSE)
 
@@ -328,7 +327,6 @@ npm run dev       # http://localhost:3000
 | `npm run lint` | Type-check only (`tsc --noEmit`, strict mode) |
 | `npm test` | Run unit tests in watch mode (`npx vitest run` for a single run) |
 | `npm run test:coverage` | Run unit tests once with a coverage report |
-| `npm run test:e2e` | Run Playwright end-to-end tests (first time: `npx playwright install chromium`) |
 | `npm run deploy` | Build and publish to GitHub Pages |
 
 Progress is saved to your browser's `localStorage`.
@@ -337,7 +335,7 @@ Progress is saved to your browser's `localStorage`.
 
 - [Phaser 3](https://phaser.io/) for rendering and scenes
 - TypeScript (strict) and [Vite](https://vite.dev/)
-- [Vitest](https://vitest.dev/) with jsdom for unit tests, [Playwright](https://playwright.dev/) for end-to-end tests
+- [Vitest](https://vitest.dev/) with jsdom for unit tests
 - GitHub Actions for CI and deployment to GitHub Pages
 - Text bundles in Japanese (default) and English
 
@@ -356,7 +354,7 @@ src/
 ├── ui/         Dialog, choice, statement and animation components
 ├── utils/      Color palette, money formatting
 └── vn/         Script engine, node types, condition evaluator
-tests/          Unit tests (Vitest) and e2e/ (Playwright)
+tests/          Unit tests (Vitest)
 ```
 
 ## Contributing

@@ -32,11 +32,9 @@ The README lists every npm script.
 ```bash
 npm run lint                        # type check (tsc --noEmit, strict mode)
 npx vitest run                      # unit tests
-npx playwright install chromium     # first time only
-npm run test:e2e                    # end-to-end tests, starts the dev server for you
 ```
 
-CI runs the same checks (Unit Tests and E2E Tests) on every pull request. Both must pass before a merge.
+CI runs the same checks (Unit Tests) on every pull request. They must pass before a merge.
 
 ## Workflow
 

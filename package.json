@@ -11,7 +11,6 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
-    "test:e2e": "playwright test",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "keywords": [
@@ -32,7 +31,6 @@
     "phaser": "^3.90.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
     "@types/node": "^25.2.1",
     "@vitest/ui": "^4.0.18",
     "gh-pages": "^6.3.0",

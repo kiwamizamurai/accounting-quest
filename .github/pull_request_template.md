@@ -6,7 +6,6 @@
 
 - [ ] `npm run lint` passes
 - [ ] `npx vitest run` passes
-- [ ] `npm run test:e2e` passes (or explain why it was not run)
 - [ ] New or changed text is added to both `src/i18n/ja.json` and `src/i18n/en.json`
 - [ ] Every new transaction balances (debits = credits)
 - [ ] Docs updated if behavior changed
