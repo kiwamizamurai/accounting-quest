@@ -22,6 +22,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   private selectedIndex = -1;
   private correctIndex?: number;
   private suspended = false;
+  private locked: boolean[] = [];
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -56,8 +57,15 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
 
     this.onSelect = onSelect;
     this.correctIndex = correctIndex;
-    this.selectedIndex = 0;
-    this.build(prompt, choices.map(choice => choice.label ?? t(choice.labelKey)));
+    this.locked = choices.map(choice => !!choice.locked);
+    this.selectedIndex = Math.max(0, this.locked.indexOf(false));
+    this.build(
+      prompt,
+      choices.map(choice => {
+        const label = choice.label ?? t(choice.labelKey);
+        return choice.locked && choice.lockedText ? `${label}\n${choice.lockedText}` : label;
+      })
+    );
 
     // Keyboard navigation
     this.scene.input.keyboard?.on('keydown-UP', this.navigateUp, this);
@@ -165,11 +173,13 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     container.add(hitZone);
 
     hitZone.on('pointerover', () => {
+      if (this.locked[index]) return;
       this.selectedIndex = index;
       this.updateHighlight();
     });
 
     hitZone.on('pointerdown', () => {
+      if (this.locked[index]) return;
       this.selectedIndex = index;
       this.updateHighlight();
       this.selectChoice(index);
@@ -192,7 +202,13 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       const height = container.getData('height') as number;
 
       bg.clear();
-      if (index === this.selectedIndex) {
+      if (this.locked[index]) {
+        bg.fillStyle(0x14142a, 0.95);
+        bg.fillRoundedRect(0, 0, width, height, 10);
+        bg.lineStyle(2, 0x3a3a55, 0.8);
+        bg.strokeRoundedRect(0, 0, width, height, 10);
+        label.setColor('#7a7a94');
+      } else if (index === this.selectedIndex) {
         bg.fillStyle(0x2a3a6e, 0.95);
         bg.fillRoundedRect(0, 0, width, height, 10);
         bg.lineStyle(2, 0xffd700, 1);
@@ -208,24 +224,26 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     });
   }
 
-  private navigateUp = (): void => {
-    if (!this.visible || this.choiceContainers.length === 0) return;
-    this.selectedIndex = this.selectedIndex <= 0
-      ? this.choiceContainers.length - 1
-      : this.selectedIndex - 1;
-    this.updateHighlight();
-  };
+  private navigateUp = (): void => this.moveSelection(-1);
 
-  private navigateDown = (): void => {
-    if (!this.visible || this.choiceContainers.length === 0) return;
-    this.selectedIndex = this.selectedIndex >= this.choiceContainers.length - 1
-      ? 0
-      : this.selectedIndex + 1;
+  private navigateDown = (): void => this.moveSelection(1);
+
+  /** Move to the next answer in the given direction that is not locked. */
+  private moveSelection(direction: 1 | -1): void {
+    const count = this.choiceContainers.length;
+    if (!this.visible || count === 0) return;
+    for (let step = 1; step <= count; step++) {
+      const next = (this.selectedIndex + direction * step + count * step) % count;
+      if (!this.locked[next]) {
+        this.selectedIndex = next;
+        break;
+      }
+    }
     this.updateHighlight();
-  };
+  }
 
   private confirmSelection = (): void => {
-    if (!this.visible || this.selectedIndex < 0) return;
+    if (!this.visible || this.selectedIndex < 0 || this.locked[this.selectedIndex]) return;
     this.selectChoice(this.selectedIndex);
   };
 
@@ -233,7 +251,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   private pressNumber = (event: KeyboardEvent): void => {
     if (!this.visible || !/^[1-9]$/.test(event.key)) return;
     const index = Number(event.key) - 1;
-    if (index < this.choiceContainers.length) {
+    if (index < this.choiceContainers.length && !this.locked[index]) {
       this.selectedIndex = index;
       this.updateHighlight();
       this.selectChoice(index);
@@ -252,11 +270,11 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       });
     }
 
+    // Close first: the handler may open the next question in this same panel
     const finish = (): void => {
-      if (this.onSelect) {
-        this.onSelect(index);
-      }
+      const onSelect = this.onSelect;
       this.hide();
+      onSelect?.(index);
     };
 
     if (this.correctIndex === undefined) {
@@ -322,6 +340,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       container.destroy();
     }
     this.choiceContainers = [];
+    this.locked = [];
     this.panelBg.clear();
     this.promptText.setText('');
   }

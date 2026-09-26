@@ -4,7 +4,7 @@ import {
   ChapterResult,
   ChoiceView,
   ConditionDef,
-  NumberInputNode,
+  EntryDef,
   ResolvedEntry,
   TransactionDef,
   VNState,
@@ -20,7 +20,9 @@ import { t } from '../i18n';
 /** The player is asked to enter the journal entry of a transaction. */
 export interface PlayerEntryRequest {
   description: string;
-  entries: ResolvedEntry[];
+  /** The journal entries to pick from, the right one among them. */
+  options: ResolvedEntry[][];
+  correctIndex: number;
   hint?: string;
   attempts: number;
 }
@@ -31,24 +33,12 @@ export interface PlayerEntryResult {
   done: boolean;
 }
 
-export interface NumberInputRequest {
-  prompt: string;
-  min: number;
-  max: number;
-  step: number;
-  initial: number;
-  /** Text describing the outcome if the player picked `value`. */
-  preview?: (value: number) => string;
-}
-
 export type ScriptEngineCallback = {
   onDialog: (speaker: string, text: string, expression?: string) => void;
   onChoice: (prompt: string, choices: ChoiceView[]) => void;
   onTransaction: (description: string, entries: ResolvedEntry[], showAnimation: boolean) => void;
   /** Without it a player entry is recorded automatically, like any other transaction. */
   onPlayerTransaction?: (request: PlayerEntryRequest) => void;
-  /** Without it the number input takes its initial value. */
-  onNumberInput?: (request: NumberInputRequest) => void;
   onReport: (reportType: string, message?: string) => void;
   onNarration: (text: string) => void;
   onCharacterEnter: (character: string, position: CharacterPosition, expression?: string) => void;
@@ -67,12 +57,6 @@ interface PendingPlayerEntry {
   maxAttempts: number;
 }
 
-interface PendingNumberInput {
-  node: NumberInputNode;
-  min: number;
-  max: number;
-}
-
 let journalEntryCounter = 0;
 
 export class ScriptEngine {
@@ -83,7 +67,6 @@ export class ScriptEngine {
   private conditionEvaluator: ConditionEvaluator;
   private callbacks: ScriptEngineCallback | null = null;
   private pendingPlayerEntry: PendingPlayerEntry | null = null;
-  private pendingNumberInput: PendingNumberInput | null = null;
 
   constructor(gameState: GameStateManager) {
     this.gameState = gameState;
@@ -227,20 +210,16 @@ export class ScriptEngine {
     return { correct, done };
   }
 
-  /**
-   * The number the player picked for the current number input. It is snapped to the allowed steps and
-   * stored in the node's flag, then the story continues.
-   */
-  submitNumber(value: number): number {
-    const pending = this.pendingNumberInput;
-    if (!pending) return value;
-
-    const accepted = this.snapToRange(value, pending.min, pending.max, pending.node.step);
-    this.vnState.flags[pending.node.flag] = accepted;
-    this.pendingNumberInput = null;
-    this.vnState.currentNodeId = pending.node.next;
-    this.executeCurrentNode();
-    return accepted;
+  /** The right entry among the wrong ones; where it stands depends on the node, so it is not always first. */
+  private playerEntryOptions(
+    nodeId: string,
+    correct: ResolvedEntry[],
+    distractors: EntryDef[][]
+  ): { options: ResolvedEntry[][]; correctIndex: number } {
+    const wrong = distractors.map(entries => resolveEntries(entries, this.vnState.flags));
+    const seed = [...nodeId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const correctIndex = seed % (wrong.length + 1);
+    return { options: [...wrong.slice(0, correctIndex), correct, ...wrong.slice(correctIndex)], correctIndex };
   }
 
   private entriesMatch(submitted: ResolvedEntry[], expected: ResolvedEntry[]): boolean {
@@ -259,12 +238,6 @@ export class ScriptEngine {
 
   private bumpStat(key: string): void {
     this.vnState.flags[key] = Number(this.vnState.flags[key] ?? 0) + 1;
-  }
-
-  private snapToRange(value: number, min: number, max: number, step: number): number {
-    const upper = min + Math.floor((Math.max(max, min) - min) / step) * step;
-    const snapped = min + Math.round((value - min) / step) * step;
-    return Math.min(Math.max(snapped, min), upper);
   }
 
   private calcContext(flags: Record<string, unknown> = this.vnState.flags): CalcContext {
@@ -343,11 +316,11 @@ export class ScriptEngine {
           const entries = resolveEntries(node.entries, this.vnState.flags);
           const description = t(node.descriptionKey, this.textParams());
           if (node.entry === 'player' && this.callbacks.onPlayerTransaction) {
-            const maxAttempts = node.attempts ?? 3;
+            const maxAttempts = node.attempts ?? 2;
             this.pendingPlayerEntry = { expected: entries, eventType: node.eventType, attempts: 0, maxAttempts };
             this.callbacks.onPlayerTransaction({
               description,
-              entries,
+              ...this.playerEntryOptions(node.id, entries, node.distractors ?? []),
               hint: node.hintKey ? t(node.hintKey, this.textParams()) : undefined,
               attempts: maxAttempts,
             });
@@ -361,29 +334,6 @@ export class ScriptEngine {
           this.vnState.flags[node.set] = evaluateCalc(node.expr, this.calcContext());
           if (!this.moveTo(node.next, 'calc')) return;
           continue; // loop instead of recurse
-        }
-        case 'number_input': {
-          const min = evaluateCalc(node.min, this.calcContext());
-          const max = min + Math.floor((Math.max(evaluateCalc(node.max, this.calcContext()), min) - min) / node.step) * node.step;
-          const initial = this.snapToRange(node.initial === undefined ? min : evaluateCalc(node.initial, this.calcContext()), min, max, node.step);
-          if (!this.callbacks.onNumberInput) {
-            this.vnState.flags[node.flag] = initial;
-            if (!this.moveTo(node.next, 'number_input')) return;
-            continue;
-          }
-          this.pendingNumberInput = { node, min, max };
-          const preview = node.preview;
-          this.callbacks.onNumberInput({
-            prompt: t(node.promptKey, this.textParams()),
-            min,
-            max,
-            step: node.step,
-            initial,
-            preview: preview
-              ? value => this.numberPreview(node, preview, value)
-              : undefined,
-          });
-          return;
         }
         case 'report': {
           const msg = node.messageKey ? t(node.messageKey, this.textParams()) : undefined;
@@ -510,16 +460,6 @@ export class ScriptEngine {
     const stars = results.filter(goal => goal.met).length;
     this.gameState.setChapterResult(this.vnState.currentChapter, stars, results.length);
     return { goals: results, stars };
-  }
-
-  /** The preview text of a number input if the player picked `value`. */
-  private numberPreview(node: NumberInputNode, preview: NonNullable<NumberInputNode['preview']>, value: number): string {
-    const flags = { ...this.vnState.flags, [node.flag]: value };
-    const params: Record<string, string | number> = { ...(flags as Record<string, string | number>) };
-    for (const [name, expr] of Object.entries(preview.values ?? {})) {
-      params[name] = evaluateCalc(expr, this.calcContext(flags));
-    }
-    return t(preview.textKey, params);
   }
 
   getNodeById(id: string): ScriptNode | undefined {

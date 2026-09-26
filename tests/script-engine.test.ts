@@ -330,60 +330,6 @@ describe('ScriptEngine: calc and flag amounts', () => {
   });
 });
 
-describe('ScriptEngine: number input', () => {
-  const buyNode: ScriptNode = {
-    id: 'ask',
-    type: 'number_input',
-    promptKey: 'how many',
-    flag: 'qty',
-    min: 0,
-    max: { op: 'div', args: [{ balance: 'CASH' }, 50] },
-    step: 1,
-    initial: 5,
-    preview: { textKey: '{qty} cups cost {cost} and leave {left}', values: { cost: { op: 'mul', args: [{ flag: 'qty' }, 50] }, left: { op: 'sub', args: [{ balance: 'CASH' }, { op: 'mul', args: [{ flag: 'qty' }, 50] }] } } },
-    next: 'end',
-  };
-  const opening = { opening: { CASH: 520, OWNERS_CAPITAL: 520 } };
-
-  it('asks with a range that follows the cash on hand', () => {
-    const onNumberInput = vi.fn();
-    const { engine } = setup([buyNode, end], opening, { onNumberInput });
-    engine.startChapter(1);
-
-    expect(onNumberInput).toHaveBeenCalledTimes(1);
-    const request = onNumberInput.mock.calls[0][0];
-    expect(request).toMatchObject({ prompt: 'how many', min: 0, max: 10, step: 1, initial: 5 });
-    expect(request.preview(4)).toBe('4 cups cost 200 and leave 320');
-  });
-
-  it('stores the picked number, snapped into the range, and moves on', () => {
-    const onNumberInput = vi.fn();
-    const { engine, callbacks } = setup([buyNode, end], opening, { onNumberInput });
-    engine.startChapter(1);
-
-    expect(engine.submitNumber(99)).toBe(10);
-    expect(engine.getVNState().flags.qty).toBe(10);
-    expect(callbacks.onDialog).toHaveBeenCalledTimes(1);
-  });
-
-  it('snaps to the step and never goes below the minimum', () => {
-    const onNumberInput = vi.fn();
-    const stepped: ScriptNode = { ...buyNode, min: 100, max: 400, step: 50, initial: undefined } as ScriptNode;
-    const { engine } = setup([stepped, end], opening, { onNumberInput });
-    engine.startChapter(1);
-
-    expect(onNumberInput.mock.calls[0][0]).toMatchObject({ min: 100, max: 400, step: 50, initial: 100 });
-    expect(engine.submitNumber(240)).toBe(250);
-  });
-
-  it('takes the initial value when the UI cannot ask', () => {
-    const { engine, callbacks } = setup([buyNode, end], opening);
-    engine.startChapter(1);
-    expect(engine.getVNState().flags.qty).toBe(5);
-    expect(callbacks.onDialog).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('ScriptEngine: player entries', () => {
   const nodes: ScriptNode[] = [
     { id: 'set', type: 'set_flag', flags: { cost: 200 }, next: 'buy' },
@@ -397,6 +343,16 @@ describe('ScriptEngine: player entries', () => {
       ],
       showAnimation: true,
       entry: 'player',
+      distractors: [
+        [
+          { account: 'CASH', debit: { flag: 'cost' } },
+          { account: 'INVENTORY', credit: { flag: 'cost' } },
+        ],
+        [
+          { account: 'EQUIPMENT', debit: { flag: 'cost' } },
+          { account: 'CASH', credit: { flag: 'cost' } },
+        ],
+      ],
       hintKey: 'hint',
       attempts: 2,
       next: 'end',
@@ -413,22 +369,34 @@ describe('ScriptEngine: player entries', () => {
     { account: 'EQUIPMENT', debit: 200 },
   ];
 
-  it('asks for the entry without recording it yet', () => {
+  it('offers the right entry among the wrong ones, without recording anything yet', () => {
     const onPlayerTransaction = vi.fn();
     const { gm, engine, callbacks } = setup(nodes, opening, { onPlayerTransaction });
     engine.startChapter(1);
 
-    expect(onPlayerTransaction).toHaveBeenCalledWith({
-      description: 'buy',
-      entries: [
-        { account: 'INVENTORY', debit: 200, credit: undefined },
-        { account: 'CASH', debit: undefined, credit: 200 },
-      ],
-      hint: 'hint',
-      attempts: 2,
-    });
+    const request = onPlayerTransaction.mock.calls[0][0];
+    expect(request).toMatchObject({ description: 'buy', hint: 'hint', attempts: 2 });
+    expect(request.options).toHaveLength(3);
+    expect(request.options[request.correctIndex]).toEqual([
+      { account: 'INVENTORY', debit: 200, credit: undefined },
+      { account: 'CASH', debit: undefined, credit: 200 },
+    ]);
     expect(callbacks.onTransaction).not.toHaveBeenCalled();
     expect(gm.getAccountBalance(AccountCategory.INVENTORY)).toBe(0);
+  });
+
+  it('does not always put the right entry first', () => {
+    const positions = ['buy', 'sell', 'pay', 'save'].map(id => {
+      const onPlayerTransaction = vi.fn();
+      const { engine } = setup(
+        nodes.map(node => (node.id === 'buy' ? { ...node, id } : node.id === 'set' ? { ...node, next: id } : node)),
+        opening,
+        { onPlayerTransaction }
+      );
+      engine.startChapter(1);
+      return onPlayerTransaction.mock.calls[0][0].correctIndex;
+    });
+    expect(new Set(positions).size).toBeGreaterThan(1);
   });
 
   it('records the entry once the player gets it right, and counts a first-try hit', () => {

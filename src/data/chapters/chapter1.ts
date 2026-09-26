@@ -1,515 +1,204 @@
-import { ChapterScript, ScriptNode } from '../../vn/types';
+import { CalcExpr, ChapterScript, ChoiceOption, ScriptNode } from '../../vn/types';
+
+// Customers that come at each price; a cup costs 50 to make. Selling at 150 pays best when there is stock for all six.
+const DEMAND_BY_PRICE: Record<number, number> = { 100: 10, 150: 6, 200: 3 };
+const CUP_COST = 50;
+
+const demand = (price: CalcExpr): CalcExpr => ({ op: 'table', of: price, table: DEMAND_BY_PRICE });
+
+const invest = (labelKey: string, capital: number): ChoiceOption => ({
+  labelKey,
+  next: 'enter_capital',
+  effects: { setFlags: { capital } },
+});
+
+// Only the amounts the cash on hand can pay for can be picked
+const buy = (labelKey: string, qty: number): ChoiceOption => ({
+  labelKey,
+  next: 'calc_cost',
+  requires: { type: 'account_gte', account: 'CASH', amount: qty * CUP_COST },
+  lockedKey: 'ch1.ask_qty.locked',
+  effects: { setFlags: { qty } },
+});
+
+const sellAt = (labelKey: string, price: number): ChoiceOption => ({
+  labelKey,
+  next: 'calc_demand',
+  effects: { setFlags: { price } },
+});
 
 const nodes: ScriptNode[] = [
-  // === Opening ===
-  {
-    id: 'start',
-    type: 'background',
-    background: 'home',
-    next: 'mentor_enter',
-  },
-  {
-    id: 'mentor_enter',
-    type: 'character_enter',
-    character: 'mentor',
-    position: 'right',
-    expression: 'happy',
-    next: 'dialog_1',
-  },
-  {
-    id: 'dialog_1',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_1',
-    expression: 'happy',
-    next: 'dialog_2',
-  },
-  {
-    id: 'dialog_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_2',
-    expression: 'normal',
-    next: 'dialog_3',
-  },
-  {
-    id: 'dialog_3',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_3',
-    expression: 'thinking',
-    next: 'dialog_4',
-  },
-  {
-    id: 'dialog_4',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_4',
-    expression: 'normal',
-    next: 'dialog_5',
-  },
-  {
-    id: 'dialog_5',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_5',
-    expression: 'happy',
-    next: 'choice_investment',
-  },
+  // === Opening: the accounting equation and the day's forecast ===
+  { id: 'start', type: 'background', background: 'lemonade_stand', next: 'mentor_enter' },
+  { id: 'mentor_enter', type: 'character_enter', character: 'mentor', position: 'right', expression: 'happy', next: 'dialog_1' },
+  { id: 'dialog_1', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_1', expression: 'happy', next: 'dialog_3' },
+  { id: 'dialog_3', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_3', expression: 'thinking', next: 'dialog_forecast' },
+  { id: 'dialog_forecast', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_forecast', expression: 'normal', next: 'dialog_capital' },
+  { id: 'dialog_capital', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_capital', expression: 'normal', next: 'ask_capital' },
 
-  // === Initial Investment Choice ===
+  // === Decide 1: the capital, and record it ===
   {
-    id: 'choice_investment',
+    id: 'ask_capital',
     type: 'choice',
     speaker: 'mentor',
-    promptKey: 'ch1.choice_investment.prompt',
-    choices: [
-      {
-        labelKey: 'ch1.choice_investment.0',
-        next: 'invest_500',
-        effects: {
-          transaction: {
-            entries: [
-              { account: 'CASH', debit: 500 },
-              { account: 'OWNERS_CAPITAL', credit: 500 },
-            ],
-          },
-          setFlags: { investmentAmount: 500 },
-        },
-      },
-      {
-        labelKey: 'ch1.choice_investment.1',
-        next: 'invest_1000',
-        effects: {
-          transaction: {
-            entries: [
-              { account: 'CASH', debit: 1000 },
-              { account: 'OWNERS_CAPITAL', credit: 1000 },
-            ],
-          },
-          setFlags: { investmentAmount: 1000 },
-        },
-      },
+    promptKey: 'ch1.ask_capital.prompt',
+    choices: [invest('ch1.ask_capital.0', 300), invest('ch1.ask_capital.1', 500), invest('ch1.ask_capital.2', 800)],
+  },
+  {
+    id: 'enter_capital',
+    type: 'transaction',
+    entry: 'player',
+    descriptionKey: 'ch1.enter_capital.desc',
+    hintKey: 'ch1.enter_capital.hint',
+    entries: [
+      { account: 'CASH', debit: { flag: 'capital' } },
+      { account: 'OWNERS_CAPITAL', credit: { flag: 'capital' } },
     ],
+    distractors: [
+      [
+        { account: 'OWNERS_CAPITAL', debit: { flag: 'capital' } },
+        { account: 'CASH', credit: { flag: 'capital' } },
+      ],
+      [
+        { account: 'CASH', debit: { flag: 'capital' } },
+        { account: 'LOANS_PAYABLE', credit: { flag: 'capital' } },
+      ],
+    ],
+    eventType: 'OWNER_INVESTMENT',
+    showAnimation: false,
+    next: 'dialog_capital_result',
   },
+  { id: 'dialog_capital_result', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_capital_result', expression: 'happy', next: 'show_first_bs' },
+  { id: 'show_first_bs', type: 'report', reportType: 'balance_sheet', messageKey: 'ch1.show_first_bs.msg', next: 'transition_to_shop' },
 
-  // === Investment Result (500) ===
+  // === Decide 2: how many cups of supplies to buy, and record it ===
+  { id: 'transition_to_shop', type: 'background', background: 'supply_shop', next: 'supplier_enter' },
+  { id: 'supplier_enter', type: 'character_enter', character: 'supplier', position: 'left', expression: 'happy', next: 'dialog_shop' },
+  { id: 'dialog_shop', type: 'dialog', speaker: 'supplier', textKey: 'ch1.dialog_shop', expression: 'happy', next: 'ask_qty' },
   {
-    id: 'invest_500',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.invest_500',
-    expression: 'happy',
-    next: 'show_first_bs',
-  },
-
-  // === Investment Result (1000) ===
-  {
-    id: 'invest_1000',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.invest_1000',
-    expression: 'surprised',
-    next: 'show_first_bs',
-  },
-
-  // === First Balance Sheet ===
-  {
-    id: 'show_first_bs',
-    type: 'report',
-    reportType: 'balance_sheet',
-    messageKey: 'ch1.show_first_bs.msg',
-    next: 'dialog_bs_explain',
-  },
-  {
-    id: 'dialog_bs_explain',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_bs_explain',
-    expression: 'happy',
-    next: 'transition_to_shop',
-  },
-
-  // === Go to Supply Shop ===
-  {
-    id: 'transition_to_shop',
-    type: 'background',
-    background: 'supply_shop',
-    next: 'supplier_enter',
-  },
-  {
-    id: 'supplier_enter',
-    type: 'character_enter',
-    character: 'supplier',
-    position: 'left',
-    expression: 'normal',
-    next: 'dialog_shop_1',
-  },
-  {
-    id: 'dialog_shop_1',
-    type: 'dialog',
+    id: 'ask_qty',
+    type: 'choice',
     speaker: 'supplier',
-    textKey: 'ch1.dialog_shop_1',
-    expression: 'happy',
-    next: 'dialog_shop_2',
+    promptKey: 'ch1.ask_qty.prompt',
+    choices: [buy('ch1.ask_qty.0', 4), buy('ch1.ask_qty.1', 6), buy('ch1.ask_qty.2', 10)],
   },
+  { id: 'calc_cost', type: 'calc', set: 'cost', expr: { op: 'mul', args: [{ flag: 'qty' }, CUP_COST] }, next: 'enter_buy' },
   {
-    id: 'dialog_shop_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_shop_2',
-    expression: 'thinking',
-    next: 'choice_supplies',
-  },
-
-  // === Buy Supplies Choice ===
-  {
-    id: 'choice_supplies',
-    type: 'choice',
-    promptKey: 'ch1.choice_supplies.prompt',
-    choices: [
-      {
-        labelKey: 'ch1.choice_supplies.0',
-        next: 'buy_200',
-        effects: {
-          setFlags: { supplyCost: 200 },
-        },
-      },
-      {
-        labelKey: 'ch1.choice_supplies.1',
-        next: 'buy_350',
-        effects: {
-          setFlags: { supplyCost: 350 },
-        },
-      },
-    ],
-  },
-  {
-    id: 'buy_200',
+    id: 'enter_buy',
     type: 'transaction',
-    descriptionKey: 'ch1.buy_200.desc',
+    entry: 'player',
+    descriptionKey: 'ch1.enter_buy.desc',
+    hintKey: 'ch1.enter_buy.hint',
     entries: [
-      { account: 'INVENTORY', debit: 200 },
-      { account: 'CASH', credit: 200 },
+      { account: 'INVENTORY', debit: { flag: 'cost' } },
+      { account: 'CASH', credit: { flag: 'cost' } },
     ],
-    showAnimation: true,
+    distractors: [
+      [
+        { account: 'CASH', debit: { flag: 'cost' } },
+        { account: 'INVENTORY', credit: { flag: 'cost' } },
+      ],
+      [
+        { account: 'COST_OF_GOODS_SOLD', debit: { flag: 'cost' } },
+        { account: 'CASH', credit: { flag: 'cost' } },
+      ],
+    ],
+    eventType: 'PURCHASE_INVENTORY',
+    showAnimation: false,
     next: 'after_buy',
   },
-  {
-    id: 'buy_350',
-    type: 'transaction',
-    descriptionKey: 'ch1.buy_350.desc',
-    entries: [
-      { account: 'INVENTORY', debit: 350 },
-      { account: 'CASH', credit: 350 },
-    ],
-    showAnimation: true,
-    next: 'after_buy',
-  },
-  {
-    id: 'after_buy',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.after_buy',
-    expression: 'happy',
-    next: 'show_bs_after_buy',
-  },
-  {
-    id: 'show_bs_after_buy',
-    type: 'report',
-    reportType: 'balance_sheet',
-    messageKey: 'ch1.show_bs_after_buy.msg',
-    next: 'supplier_exit',
-  },
-  {
-    id: 'supplier_exit',
-    type: 'character_exit',
-    character: 'supplier',
-    next: 'transition_to_stand',
-  },
+  { id: 'after_buy', type: 'dialog', speaker: 'mentor', textKey: 'ch1.after_buy', expression: 'happy', next: 'show_bs_after_buy' },
+  { id: 'show_bs_after_buy', type: 'report', reportType: 'balance_sheet', messageKey: 'ch1.show_bs_after_buy.msg', next: 'supplier_exit' },
+  { id: 'supplier_exit', type: 'character_exit', character: 'supplier', next: 'transition_to_stand' },
 
-  // === First Sales ===
+  // === Decide 3: the price. The result depends on stock and price together ===
+  { id: 'transition_to_stand', type: 'background', background: 'lemonade_stand', next: 'customer_enter' },
+  { id: 'customer_enter', type: 'character_enter', character: 'customer', position: 'left', expression: 'happy', next: 'dialog_price' },
+  { id: 'dialog_price', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_price', expression: 'normal', next: 'ask_price' },
   {
-    id: 'transition_to_stand',
-    type: 'background',
-    background: 'lemonade_stand',
-    next: 'customer_enter',
-  },
-  {
-    id: 'customer_enter',
-    type: 'character_enter',
-    character: 'customer',
-    position: 'left',
-    expression: 'happy',
-    next: 'dialog_sale_1',
-  },
-  {
-    id: 'dialog_sale_1',
-    type: 'dialog',
-    speaker: 'customer',
-    textKey: 'ch1.dialog_sale_1',
-    expression: 'happy',
-    next: 'dialog_sale_2',
-  },
-  {
-    id: 'dialog_sale_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_sale_2',
-    expression: 'normal',
-    next: 'choice_sale_price',
-  },
-
-  // === Sale Price Choice ===
-  {
-    id: 'choice_sale_price',
+    id: 'ask_price',
     type: 'choice',
-    promptKey: 'ch1.choice_sale_price.prompt',
-    choices: [
-      {
-        labelKey: 'ch1.choice_sale_price.0',
-        next: 'sale_100',
-        effects: {
-          setFlags: { salePrice: 100, profit: 50 },
-        },
-      },
-      {
-        labelKey: 'ch1.choice_sale_price.1',
-        next: 'sale_150',
-        effects: {
-          setFlags: { salePrice: 150, profit: 100 },
-        },
-      },
-    ],
-  },
-
-  // === Record Sale (100) ===
-  {
-    id: 'sale_100',
-    type: 'transaction',
-    descriptionKey: 'ch1.sale_100.desc',
-    entries: [
-      { account: 'CASH', debit: 100 },
-      { account: 'SALES_REVENUE', credit: 100 },
-    ],
-    showAnimation: true,
-    next: 'sale_cogs_100',
-  },
-  {
-    id: 'sale_cogs_100',
-    type: 'transaction',
-    descriptionKey: 'ch1.sale_cogs_100.desc',
-    entries: [
-      { account: 'COST_OF_GOODS_SOLD', debit: 50 },
-      { account: 'INVENTORY', credit: 50 },
-    ],
-    showAnimation: true,
-    next: 'after_sale',
-  },
-
-  // === Record Sale (150) ===
-  {
-    id: 'sale_150',
-    type: 'transaction',
-    descriptionKey: 'ch1.sale_150.desc',
-    entries: [
-      { account: 'CASH', debit: 150 },
-      { account: 'SALES_REVENUE', credit: 150 },
-    ],
-    showAnimation: true,
-    next: 'sale_cogs_150',
-  },
-  {
-    id: 'sale_cogs_150',
-    type: 'transaction',
-    descriptionKey: 'ch1.sale_cogs_150.desc',
-    entries: [
-      { account: 'COST_OF_GOODS_SOLD', debit: 50 },
-      { account: 'INVENTORY', credit: 50 },
-    ],
-    showAnimation: true,
-    next: 'after_sale',
-  },
-
-  // === After First Sale ===
-  {
-    id: 'after_sale',
-    type: 'dialog',
     speaker: 'mentor',
-    textKey: 'ch1.after_sale',
-    expression: 'happy',
+    promptKey: 'ch1.ask_price.prompt',
+    choices: [sellAt('ch1.ask_price.0', 100), sellAt('ch1.ask_price.1', 150), sellAt('ch1.ask_price.2', 200)],
+  },
+  { id: 'calc_demand', type: 'calc', set: 'demand', expr: demand({ flag: 'price' }), next: 'calc_sold' },
+  { id: 'calc_sold', type: 'calc', set: 'sold', expr: { op: 'min', args: [{ flag: 'qty' }, { flag: 'demand' }] }, next: 'calc_revenue' },
+  { id: 'calc_revenue', type: 'calc', set: 'revenue', expr: { op: 'mul', args: [{ flag: 'sold' }, { flag: 'price' }] }, next: 'calc_cogs' },
+  { id: 'calc_cogs', type: 'calc', set: 'cogs', expr: { op: 'mul', args: [{ flag: 'sold' }, CUP_COST] }, next: 'calc_unsold' },
+  { id: 'calc_unsold', type: 'calc', set: 'unsold', expr: { op: 'sub', args: [{ flag: 'qty' }, { flag: 'sold' }] }, next: 'calc_lost' },
+  { id: 'calc_lost', type: 'calc', set: 'lost', expr: { op: 'sub', args: [{ flag: 'demand' }, { flag: 'sold' }] }, next: 'sales_result' },
+  { id: 'sales_result', type: 'narration', textKey: 'ch1.sales_result', next: 'enter_sale' },
+
+  // === Record the sale: two entries, both entered by the player ===
+  {
+    id: 'enter_sale',
+    type: 'transaction',
+    entry: 'player',
+    descriptionKey: 'ch1.enter_sale.desc',
+    hintKey: 'ch1.enter_sale.hint',
+    entries: [
+      { account: 'CASH', debit: { flag: 'revenue' } },
+      { account: 'SALES_REVENUE', credit: { flag: 'revenue' } },
+    ],
+    distractors: [
+      [
+        { account: 'SALES_REVENUE', debit: { flag: 'revenue' } },
+        { account: 'CASH', credit: { flag: 'revenue' } },
+      ],
+      [
+        { account: 'ACCOUNTS_RECEIVABLE', debit: { flag: 'revenue' } },
+        { account: 'SALES_REVENUE', credit: { flag: 'revenue' } },
+      ],
+    ],
+    eventType: 'CASH_SALE',
+    showAnimation: false,
+    next: 'enter_cogs',
+  },
+  {
+    id: 'enter_cogs',
+    type: 'transaction',
+    entry: 'player',
+    descriptionKey: 'ch1.enter_cogs.desc',
+    hintKey: 'ch1.enter_cogs.hint',
+    entries: [
+      { account: 'COST_OF_GOODS_SOLD', debit: { flag: 'cogs' } },
+      { account: 'INVENTORY', credit: { flag: 'cogs' } },
+    ],
+    distractors: [
+      [
+        { account: 'INVENTORY', debit: { flag: 'cogs' } },
+        { account: 'COST_OF_GOODS_SOLD', credit: { flag: 'cogs' } },
+      ],
+      [
+        { account: 'COST_OF_GOODS_SOLD', debit: { flag: 'cogs' } },
+        { account: 'CASH', credit: { flag: 'cogs' } },
+      ],
+    ],
+    eventType: 'SELL_INVENTORY',
+    showAnimation: false,
     next: 'dialog_sale_explain_1',
   },
-  {
-    id: 'dialog_sale_explain_1',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_sale_explain_1',
-    expression: 'thinking',
-    next: 'dialog_sale_explain_2',
-  },
-  {
-    id: 'dialog_sale_explain_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_sale_explain_2',
-    expression: 'normal',
-    next: 'customer_exit',
-  },
-  {
-    id: 'customer_exit',
-    type: 'character_exit',
-    character: 'customer',
-    next: 'more_sales',
-  },
+  { id: 'dialog_sale_explain_1', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_sale_explain_1', expression: 'thinking', next: 'dialog_sale_explain_2' },
+  { id: 'dialog_sale_explain_2', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_sale_explain_2', expression: 'happy', next: 'customer_exit' },
+  { id: 'customer_exit', type: 'character_exit', character: 'customer', next: 'show_first_pl' },
+  { id: 'show_first_pl', type: 'report', reportType: 'income_statement', messageKey: 'ch1.show_first_pl.msg', next: 'dialog_pl_explain' },
+  { id: 'dialog_pl_explain', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_pl_explain', expression: 'thinking', next: 'check_unsold' },
 
-  // === More Sales ===
-  {
-    id: 'more_sales',
-    type: 'narration',
-    textKey: 'ch1.more_sales',
-    next: 'batch_sale',
-  },
-  {
-    id: 'batch_sale',
-    type: 'transaction',
-    descriptionKey: 'ch1.batch_sale.desc',
-    entries: [
-      { account: 'CASH', debit: 300 },
-      { account: 'SALES_REVENUE', credit: 300 },
-    ],
-    showAnimation: false,
-    next: 'batch_cogs',
-  },
-  {
-    id: 'batch_cogs',
-    type: 'transaction',
-    descriptionKey: 'ch1.batch_cogs.desc',
-    entries: [
-      { account: 'COST_OF_GOODS_SOLD', debit: 150 },
-      { account: 'INVENTORY', credit: 150 },
-    ],
-    showAnimation: false,
-    next: 'show_first_pl',
-  },
-  {
-    id: 'show_first_pl',
-    type: 'report',
-    reportType: 'income_statement',
-    messageKey: 'ch1.show_first_pl.msg',
-    next: 'dialog_pl_explain',
-  },
-  {
-    id: 'dialog_pl_explain',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_pl_explain',
-    expression: 'thinking',
-    next: 'end_of_day',
-  },
+  // === What the decisions led to: leftover stock, a sell-out with lost sales, or a perfect match ===
+  { id: 'check_unsold', type: 'conditional', condition: { type: 'flag_gte', flag: 'unsold', amount: 1 }, trueNext: 'dialog_unsold', falseNext: 'check_lost' },
+  { id: 'dialog_unsold', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_unsold', expression: 'thinking', next: 'end_of_day' },
+  { id: 'check_lost', type: 'conditional', condition: { type: 'flag_gte', flag: 'lost', amount: 1 }, trueNext: 'dialog_lost', falseNext: 'dialog_perfect' },
+  { id: 'dialog_lost', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_lost', expression: 'surprised', next: 'end_of_day' },
+  { id: 'dialog_perfect', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_perfect', expression: 'happy', next: 'end_of_day' },
 
-  // === End of Day ===
-  {
-    id: 'end_of_day',
-    type: 'background',
-    background: 'home',
-    next: 'mentor_reenter',
-  },
-  {
-    id: 'mentor_reenter',
-    type: 'character_enter',
-    character: 'mentor',
-    position: 'right',
-    expression: 'happy',
-    next: 'dialog_end_1',
-  },
-  {
-    id: 'dialog_end_1',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_end_1',
-    expression: 'happy',
-    next: 'show_final_bs',
-  },
-  {
-    id: 'show_final_bs',
-    type: 'report',
-    reportType: 'balance_sheet',
-    messageKey: 'ch1.show_final_bs.msg',
-    next: 'dialog_bs_pl_link_1',
-  },
-  {
-    id: 'dialog_bs_pl_link_1',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_bs_pl_link_1',
-    expression: 'thinking',
-    next: 'dialog_bs_pl_link_2',
-  },
-  {
-    id: 'dialog_bs_pl_link_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_bs_pl_link_2',
-    expression: 'normal',
-    next: 'dialog_txn_intro',
-  },
-  // === Review: what a transaction is (8 elements, debit/credit rule) ===
-  {
-    id: 'dialog_txn_intro',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_txn_intro',
-    expression: 'thinking',
-    next: 'dialog_txn_elements',
-  },
-  {
-    id: 'dialog_txn_elements',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_txn_elements',
-    expression: 'normal',
-    next: 'dialog_txn_rule',
-  },
-  {
-    id: 'dialog_txn_rule',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_txn_rule',
-    expression: 'normal',
-    next: 'dialog_txn_example',
-  },
-  {
-    id: 'dialog_txn_example',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_txn_example',
-    expression: 'normal',
-    next: 'dialog_txn_kinds',
-  },
-  {
-    id: 'dialog_txn_kinds',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_txn_kinds',
-    expression: 'normal',
-    next: 'quiz_txn_1',
-  },
-  {
-    id: 'quiz_txn_1',
-    type: 'quiz',
-    questionKey: 'ch1.quiz_txn_1.question',
-    options: [
-      { labelKey: 'ch1.quiz_txn_1.option_0' },
-      { labelKey: 'ch1.quiz_txn_1.option_1' },
-      { labelKey: 'ch1.quiz_txn_1.option_2' },
-    ],
-    correctIndex: 1,
-    correctFeedbackKey: 'ch1.quiz_txn_1.correct',
-    incorrectFeedbackKey: 'ch1.quiz_txn_1.incorrect',
-    expReward: 10,
-    next: 'quiz_txn_2',
-  },
+  // === End of the day: BS and PL are connected, then the rules behind the entries ===
+  { id: 'end_of_day', type: 'background', background: 'home', next: 'show_final_bs' },
+  { id: 'show_final_bs', type: 'report', reportType: 'balance_sheet', messageKey: 'ch1.show_final_bs.msg', next: 'dialog_bs_pl_link_1' },
+  { id: 'dialog_bs_pl_link_1', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_bs_pl_link_1', expression: 'normal', next: 'dialog_bs_pl_link_2' },
+  { id: 'dialog_bs_pl_link_2', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_bs_pl_link_2', expression: 'happy', next: 'dialog_txn_elements' },
+  { id: 'dialog_txn_elements', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_txn_elements', expression: 'thinking', next: 'dialog_txn_rule' },
+  { id: 'dialog_txn_rule', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_txn_rule', expression: 'normal', next: 'quiz_txn_2' },
   {
     id: 'quiz_txn_2',
     type: 'quiz',
@@ -523,71 +212,9 @@ const nodes: ScriptNode[] = [
     correctFeedbackKey: 'ch1.quiz_txn_2.correct',
     incorrectFeedbackKey: 'ch1.quiz_txn_2.incorrect',
     expReward: 10,
-    next: 'quiz_txn_3',
-  },
-  {
-    id: 'quiz_txn_3',
-    type: 'quiz',
-    questionKey: 'ch1.quiz_txn_3.question',
-    options: [
-      { labelKey: 'ch1.quiz_txn_3.option_0' },
-      { labelKey: 'ch1.quiz_txn_3.option_1' },
-      { labelKey: 'ch1.quiz_txn_3.option_2' },
-    ],
-    correctIndex: 0,
-    correctFeedbackKey: 'ch1.quiz_txn_3.correct',
-    incorrectFeedbackKey: 'ch1.quiz_txn_3.incorrect',
-    expReward: 10,
-    next: 'dialog_end_2',
-  },
-  {
-    id: 'dialog_end_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_end_2',
-    expression: 'normal',
-    next: 'dialog_summary_1',
-  },
-  {
-    id: 'dialog_summary_1',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_summary_1',
-    expression: 'normal',
-    next: 'dialog_summary_2',
-  },
-  {
-    id: 'dialog_summary_2',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_summary_2',
-    expression: 'normal',
-    next: 'dialog_summary_3',
-  },
-  {
-    id: 'dialog_summary_3',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_summary_3',
-    expression: 'normal',
-    next: 'dialog_summary_4',
-  },
-  {
-    id: 'dialog_summary_4',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_summary_4',
-    expression: 'normal',
     next: 'dialog_end_final',
   },
-  {
-    id: 'dialog_end_final',
-    type: 'dialog',
-    speaker: 'mentor',
-    textKey: 'ch1.dialog_end_final',
-    expression: 'happy',
-    next: 'chapter_end',
-  },
+  { id: 'dialog_end_final', type: 'dialog', speaker: 'mentor', textKey: 'ch1.dialog_end_final', expression: 'happy', next: 'chapter_end' },
 
   // === Chapter End ===
   {
@@ -595,6 +222,11 @@ const nodes: ScriptNode[] = [
     type: 'chapter_end',
     nextChapter: 2,
     summaryKey: 'ch1.chapter_end.summary',
+    rating: [
+      { labelKey: 'ch1.goal.profit', when: { type: 'net_income_gte', amount: 500 } },
+      { labelKey: 'ch1.goal.no_unsold', when: { type: 'flag_lte', flag: 'unsold', amount: 0 } },
+      { labelKey: 'ch1.goal.accuracy', when: { type: 'accuracy_gte', amount: 0.75 } },
+    ],
   },
 ];
 
@@ -602,5 +234,6 @@ export const chapter1: ChapterScript = {
   id: 1,
   titleKey: 'ch1.title',
   subtitleKey: 'ch1.subtitle',
+  opening: {},
   nodes,
 };

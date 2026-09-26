@@ -13,8 +13,7 @@ export type ScriptNode =
   | ChapterEndNode
   | QuizNode
   | JournalEntryInputNode
-  | CalcNode
-  | NumberInputNode;
+  | CalcNode;
 
 /** An amount in a script: a fixed number, or the value of a flag computed earlier in the chapter. */
 export type Amount = number | { flag: string };
@@ -97,10 +96,14 @@ export interface TransactionNode {
   showAnimation: boolean;
   next: string;
   eventType?: string;
-  /** 'player': the player enters the journal entry; the correct one is recorded once they get it or run out of tries. */
+  /**
+   * 'player': the player picks the journal entry of this transaction from a list (`entries` is the
+   * right one, `distractors` the wrong ones); the correct one is recorded once they get it or run out of tries.
+   */
   entry?: 'auto' | 'player';
+  distractors?: EntryDef[][];
   hintKey?: string;
-  /** Tries the player gets for a player entry (default 3). */
+  /** Tries the player gets for a player entry (default 2). */
   attempts?: number;
 }
 
@@ -214,24 +217,6 @@ export interface CalcNode {
   type: 'calc';
   set: string;
   expr: CalcExpr;
-  next: string;
-}
-
-/**
- * The player picks a number between `min` and `max` in steps of `step`; it is stored in `flag`.
- * `preview` shows the outcome of the candidate value: its text is filled with the flags plus
- * `flag` = the candidate plus each entry of `values`, evaluated with that candidate.
- */
-export interface NumberInputNode {
-  id: string;
-  type: 'number_input';
-  promptKey: string;
-  flag: string;
-  min: CalcExpr;
-  max: CalcExpr;
-  step: number;
-  initial?: CalcExpr;
-  preview?: { textKey: string; values?: Record<string, CalcExpr> };
   next: string;
 }
 
