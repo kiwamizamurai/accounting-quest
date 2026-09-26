@@ -1,31 +1,77 @@
 import {
   ScriptNode,
   ChapterScript,
-  VNState,
-  ChoiceOption,
+  ChapterResult,
+  ChoiceView,
+  ConditionDef,
+  NumberInputNode,
+  ResolvedEntry,
   TransactionDef,
+  VNState,
   CharacterPosition,
 } from './types';
-import { ConditionEvaluator } from './ConditionEvaluator';
+import { ConditionEvaluator, ENTRY_STATS } from './ConditionEvaluator';
+import { evaluateCalc, resolveEntries, CalcContext } from './Calc';
 import { GameStateManager } from '../state/GameStateManager';
 import { AccountCategory, isValidAccountCategory } from '../models/Account';
 import { BusinessEventType, createJournalEntry, TransactionLine } from '../models/Transaction';
 import { t } from '../i18n';
 
+/** The player is asked to enter the journal entry of a transaction. */
+export interface PlayerEntryRequest {
+  description: string;
+  entries: ResolvedEntry[];
+  hint?: string;
+  attempts: number;
+}
+
+export interface PlayerEntryResult {
+  correct: boolean;
+  /** No more tries are needed: the entry was right, or the tries ran out. The correct entry is recorded. */
+  done: boolean;
+}
+
+export interface NumberInputRequest {
+  prompt: string;
+  min: number;
+  max: number;
+  step: number;
+  initial: number;
+  /** Text describing the outcome if the player picked `value`. */
+  preview?: (value: number) => string;
+}
+
 export type ScriptEngineCallback = {
   onDialog: (speaker: string, text: string, expression?: string) => void;
-  onChoice: (prompt: string, choices: ChoiceOption[]) => void;
-  onTransaction: (description: string, entries: { account: string; debit?: number; credit?: number }[], showAnimation: boolean) => void;
+  onChoice: (prompt: string, choices: ChoiceView[]) => void;
+  onTransaction: (description: string, entries: ResolvedEntry[], showAnimation: boolean) => void;
+  /** Without it a player entry is recorded automatically, like any other transaction. */
+  onPlayerTransaction?: (request: PlayerEntryRequest) => void;
+  /** Without it the number input takes its initial value. */
+  onNumberInput?: (request: NumberInputRequest) => void;
   onReport: (reportType: string, message?: string) => void;
   onNarration: (text: string) => void;
   onCharacterEnter: (character: string, position: CharacterPosition, expression?: string) => void;
   onCharacterExit: (character: string) => void;
   onBackgroundChange: (background: string) => void;
   onWait: (duration: number) => void;
-  onChapterEnd: (nextChapter?: number, summary?: string) => void;
+  onChapterEnd: (nextChapter?: number, summary?: string, result?: ChapterResult) => void;
   onQuiz: (question: string, options: string[], correctIndex: number, correctFeedback: string, incorrectFeedback: string) => void;
-  onJournalEntryInput: (prompt: string, expectedEntries: { account: string; debit?: number; credit?: number }[], correctFeedback: string, incorrectFeedback: string, hint?: string) => void;
+  onJournalEntryInput: (prompt: string, expectedEntries: ResolvedEntry[], correctFeedback: string, incorrectFeedback: string, hint?: string) => void;
 };
+
+interface PendingPlayerEntry {
+  expected: ResolvedEntry[];
+  eventType?: string;
+  attempts: number;
+  maxAttempts: number;
+}
+
+interface PendingNumberInput {
+  node: NumberInputNode;
+  min: number;
+  max: number;
+}
 
 let journalEntryCounter = 0;
 
@@ -36,6 +82,8 @@ export class ScriptEngine {
   private gameState: GameStateManager;
   private conditionEvaluator: ConditionEvaluator;
   private callbacks: ScriptEngineCallback | null = null;
+  private pendingPlayerEntry: PendingPlayerEntry | null = null;
+  private pendingNumberInput: PendingNumberInput | null = null;
 
   constructor(gameState: GameStateManager) {
     this.gameState = gameState;
@@ -63,6 +111,10 @@ export class ScriptEngine {
     if (!chapter) return false;
 
     this.vnState.currentChapter = chapterId;
+
+    if (chapter.opening) {
+      this.gameState.resetBooks(chapter.opening);
+    }
 
     this.nodeMap.clear();
     for (const node of chapter.nodes) {
@@ -123,11 +175,15 @@ export class ScriptEngine {
     return isCorrect;
   }
 
-  submitJournalEntry(entries: { account: string; debit?: number; credit?: number }[]): boolean {
+  submitJournalEntry(entries: ResolvedEntry[]): boolean {
     const node = this.getCurrentNode();
     if (!node || node.type !== 'journal_entry_input') return false;
 
-    const isCorrect = this.validateJournalEntryInput(entries, node.expectedEntries);
+    const expected = resolveEntries(node.expectedEntries, this.vnState.flags);
+    const isCorrect = this.entriesMatch(entries, expected);
+
+    this.bumpStat(ENTRY_STATS.total);
+    this.bumpStat(isCorrect ? ENTRY_STATS.firstTry : ENTRY_STATS.mistakes);
 
     if (isCorrect) {
       // Don't record the transaction here — the preceding transaction node already recorded it.
@@ -143,13 +199,54 @@ export class ScriptEngine {
     return isCorrect;
   }
 
-  private validateJournalEntryInput(
-    submitted: { account: string; debit?: number; credit?: number }[],
-    expected: { account: string; debit?: number; credit?: number }[]
-  ): boolean {
+  /**
+   * The player's try at the journal entry of the current player transaction. Once it is right, or the
+   * tries run out, the correct entry is recorded and the engine points at the next node; the caller
+   * then calls advance().
+   */
+  submitPlayerEntry(entries: ResolvedEntry[]): PlayerEntryResult {
+    const node = this.getCurrentNode();
+    const pending = this.pendingPlayerEntry;
+    if (!node || node.type !== 'transaction' || !pending) return { correct: false, done: true };
+
+    pending.attempts++;
+    const correct = this.entriesMatch(entries, pending.expected);
+
+    if (pending.attempts === 1) {
+      this.bumpStat(ENTRY_STATS.total);
+      if (correct) this.bumpStat(ENTRY_STATS.firstTry);
+    }
+    if (!correct) this.bumpStat(ENTRY_STATS.mistakes);
+
+    const done = correct || pending.attempts >= pending.maxAttempts;
+    if (done) {
+      this.processTransactionEntries(pending.expected, pending.eventType);
+      this.pendingPlayerEntry = null;
+      this.vnState.currentNodeId = node.next;
+    }
+    return { correct, done };
+  }
+
+  /**
+   * The number the player picked for the current number input. It is snapped to the allowed steps and
+   * stored in the node's flag, then the story continues.
+   */
+  submitNumber(value: number): number {
+    const pending = this.pendingNumberInput;
+    if (!pending) return value;
+
+    const accepted = this.snapToRange(value, pending.min, pending.max, pending.node.step);
+    this.vnState.flags[pending.node.flag] = accepted;
+    this.pendingNumberInput = null;
+    this.vnState.currentNodeId = pending.node.next;
+    this.executeCurrentNode();
+    return accepted;
+  }
+
+  private entriesMatch(submitted: ResolvedEntry[], expected: ResolvedEntry[]): boolean {
     if (submitted.length !== expected.length) return false;
 
-    const normalize = (entries: { account: string; debit?: number; credit?: number }[]) =>
+    const normalize = (entries: ResolvedEntry[]) =>
       entries
         .map(e => `${e.account}:${e.debit ?? 0}:${e.credit ?? 0}`)
         .sort();
@@ -160,12 +257,45 @@ export class ScriptEngine {
     return normalizedSubmitted.every((entry, i) => entry === normalizedExpected[i]);
   }
 
+  private bumpStat(key: string): void {
+    this.vnState.flags[key] = Number(this.vnState.flags[key] ?? 0) + 1;
+  }
+
+  private snapToRange(value: number, min: number, max: number, step: number): number {
+    const upper = min + Math.floor((Math.max(max, min) - min) / step) * step;
+    const snapped = min + Math.round((value - min) / step) * step;
+    return Math.min(Math.max(snapped, min), upper);
+  }
+
+  private calcContext(flags: Record<string, unknown> = this.vnState.flags): CalcContext {
+    return {
+      flags,
+      balance: account => this.gameState.getAccountBalance(account as AccountCategory),
+      netIncome: () => this.gameState.getIncomeStatement().netIncome,
+    };
+  }
+
+  private textParams(): Record<string, string | number> {
+    return this.vnState.flags as Record<string, string | number>;
+  }
+
+  /** Point at `nextId` if the chapter has it; used by nodes that continue without waiting for the UI. */
+  private moveTo(nextId: string, from: string): boolean {
+    if (!this.nodeMap.has(nextId)) {
+      console.error(`ScriptEngine: ${from} next node "${nextId}" not found in chapter ${this.vnState.currentChapter}`);
+      return false;
+    }
+    this.vnState.currentNodeId = nextId;
+    return true;
+  }
+
   selectChoice(choiceIndex: number): void {
     const node = this.getCurrentNode();
     if (!node || node.type !== 'choice') return;
 
     const choice = node.choices[choiceIndex];
     if (!choice) return;
+    if (choice.requires && !this.conditionEvaluator.evaluate(choice.requires, this.vnState)) return;
 
     this.vnState.choiceHistory.push(`${node.id}:${choiceIndex}`);
 
@@ -192,30 +322,76 @@ export class ScriptEngine {
 
       switch (node.type) {
         case 'dialog': {
-          this.callbacks.onDialog(node.speaker, t(node.textKey, this.vnState.flags as Record<string, string | number>), node.expression);
+          this.callbacks.onDialog(node.speaker, t(node.textKey, this.textParams()), node.expression);
           return;
         }
         case 'choice': {
-          const prompt = t(node.promptKey);
-          const localizedChoices = node.choices.map(c => ({
-            ...c,
-            labelKey: c.labelKey,
-          }));
-          this.callbacks.onChoice(prompt, localizedChoices);
+          const prompt = t(node.promptKey, this.textParams());
+          const choices: ChoiceView[] = node.choices.map(c => {
+            const locked = !!c.requires && !this.conditionEvaluator.evaluate(c.requires, this.vnState);
+            return {
+              ...c,
+              label: t(c.labelKey, this.textParams()),
+              locked,
+              lockedText: locked && c.lockedKey ? t(c.lockedKey, this.textParams()) : undefined,
+            };
+          });
+          this.callbacks.onChoice(prompt, choices);
           return;
         }
         case 'transaction': {
-          this.processTransactionEntries(node.entries, node.eventType);
-          this.callbacks.onTransaction(t(node.descriptionKey, this.vnState.flags as Record<string, string | number>), node.entries, node.showAnimation);
+          const entries = resolveEntries(node.entries, this.vnState.flags);
+          const description = t(node.descriptionKey, this.textParams());
+          if (node.entry === 'player' && this.callbacks.onPlayerTransaction) {
+            const maxAttempts = node.attempts ?? 3;
+            this.pendingPlayerEntry = { expected: entries, eventType: node.eventType, attempts: 0, maxAttempts };
+            this.callbacks.onPlayerTransaction({
+              description,
+              entries,
+              hint: node.hintKey ? t(node.hintKey, this.textParams()) : undefined,
+              attempts: maxAttempts,
+            });
+            return;
+          }
+          this.processTransactionEntries(entries, node.eventType);
+          this.callbacks.onTransaction(description, entries, node.showAnimation);
+          return;
+        }
+        case 'calc': {
+          this.vnState.flags[node.set] = evaluateCalc(node.expr, this.calcContext());
+          if (!this.moveTo(node.next, 'calc')) return;
+          continue; // loop instead of recurse
+        }
+        case 'number_input': {
+          const min = evaluateCalc(node.min, this.calcContext());
+          const max = min + Math.floor((Math.max(evaluateCalc(node.max, this.calcContext()), min) - min) / node.step) * node.step;
+          const initial = this.snapToRange(node.initial === undefined ? min : evaluateCalc(node.initial, this.calcContext()), min, max, node.step);
+          if (!this.callbacks.onNumberInput) {
+            this.vnState.flags[node.flag] = initial;
+            if (!this.moveTo(node.next, 'number_input')) return;
+            continue;
+          }
+          this.pendingNumberInput = { node, min, max };
+          const preview = node.preview;
+          this.callbacks.onNumberInput({
+            prompt: t(node.promptKey, this.textParams()),
+            min,
+            max,
+            step: node.step,
+            initial,
+            preview: preview
+              ? value => this.numberPreview(node, preview, value)
+              : undefined,
+          });
           return;
         }
         case 'report': {
-          const msg = node.messageKey ? t(node.messageKey) : undefined;
+          const msg = node.messageKey ? t(node.messageKey, this.textParams()) : undefined;
           this.callbacks.onReport(node.reportType, msg);
           return;
         }
         case 'narration': {
-          this.callbacks.onNarration(t(node.textKey, this.vnState.flags as Record<string, string | number>));
+          this.callbacks.onNarration(t(node.textKey, this.textParams()));
           return;
         }
         case 'character_enter': {
@@ -239,27 +415,18 @@ export class ScriptEngine {
         }
         case 'conditional': {
           const result = this.conditionEvaluator.evaluate(node.condition, this.vnState);
-          const nextId = result ? node.trueNext : node.falseNext;
-          if (!this.nodeMap.has(nextId)) {
-            console.error(`ScriptEngine: conditional branch target "${nextId}" not found in chapter ${this.vnState.currentChapter}`);
-            return;
-          }
-          this.vnState.currentNodeId = nextId;
+          if (!this.moveTo(result ? node.trueNext : node.falseNext, 'conditional branch target')) return;
           continue; // loop instead of recurse
         }
         case 'set_flag': {
           Object.assign(this.vnState.flags, node.flags);
-          if (!this.nodeMap.has(node.next)) {
-            console.error(`ScriptEngine: set_flag next node "${node.next}" not found in chapter ${this.vnState.currentChapter}`);
-            return;
-          }
-          this.vnState.currentNodeId = node.next;
+          if (!this.moveTo(node.next, 'set_flag')) return;
           continue; // loop instead of recurse
         }
         case 'chapter_end': {
-          const summary = node.summaryKey ? t(node.summaryKey) : undefined;
+          const summary = node.summaryKey ? t(node.summaryKey, this.textParams()) : undefined;
           this.gameState.completeChapter(this.vnState.currentChapter);
-          this.callbacks.onChapterEnd(node.nextChapter, summary);
+          this.callbacks.onChapterEnd(node.nextChapter, summary, this.rateChapter(node.rating));
           return;
         }
         case 'quiz': {
@@ -271,11 +438,11 @@ export class ScriptEngine {
           return;
         }
         case 'journal_entry_input': {
-          const jePrompt = t(node.promptKey);
+          const jePrompt = t(node.promptKey, this.textParams());
           const correctFeedback = t(node.correctFeedbackKey);
           const incorrectFeedback = t(node.incorrectFeedbackKey);
           const hint = node.hintKey ? t(node.hintKey) : undefined;
-          this.callbacks.onJournalEntryInput(jePrompt, node.expectedEntries, correctFeedback, incorrectFeedback, hint);
+          this.callbacks.onJournalEntryInput(jePrompt, resolveEntries(node.expectedEntries, this.vnState.flags), correctFeedback, incorrectFeedback, hint);
           return;
         }
       }
@@ -285,28 +452,10 @@ export class ScriptEngine {
   }
 
   private processTransactionDef(txDef: TransactionDef): void {
-    const lines = this.buildTransactionLines(txDef.entries);
-    if (!lines) return;
-
-    const eventType = this.resolveEventType(txDef.eventType);
-
-    const entry = createJournalEntry(
-      `VN-${++journalEntryCounter}-${Date.now()}`,
-      this.gameState.getCurrentDate(),
-      'VN Transaction',
-      'VN取引',
-      lines,
-      eventType,
-      this.vnState.currentChapter
-    );
-
-    const result = this.gameState.processTransaction(entry);
-    if (!result.success) {
-      console.error(`ScriptEngine: Transaction failed in chapter ${this.vnState.currentChapter} at node ${this.vnState.currentNodeId}: ${result.error}`);
-    }
+    this.processTransactionEntries(resolveEntries(txDef.entries, this.vnState.flags), txDef.eventType);
   }
 
-  private processTransactionEntries(entries: { account: string; debit?: number; credit?: number }[], eventType?: string): void {
+  private processTransactionEntries(entries: ResolvedEntry[], eventType?: string): void {
     const lines = this.buildTransactionLines(entries);
     if (!lines) return;
 
@@ -328,7 +477,7 @@ export class ScriptEngine {
     }
   }
 
-  private buildTransactionLines(entries: { account: string; debit?: number; credit?: number }[]): TransactionLine[] | null {
+  private buildTransactionLines(entries: ResolvedEntry[]): TransactionLine[] | null {
     for (const e of entries) {
       if (!isValidAccountCategory(e.account)) {
         console.error(`ScriptEngine: Invalid AccountCategory "${e.account}" in chapter ${this.vnState.currentChapter} at node ${this.vnState.currentNodeId}`);
@@ -348,6 +497,29 @@ export class ScriptEngine {
       return eventType as BusinessEventType;
     }
     return BusinessEventType.VN_SCRIPT_TRANSACTION;
+  }
+
+  /** Evaluate the chapter's goals; the stars are the number met. The best result is kept in the save. */
+  private rateChapter(goals: { labelKey: string; when: ConditionDef }[] | undefined): ChapterResult | undefined {
+    if (!goals || goals.length === 0) return undefined;
+
+    const results = goals.slice(0, 3).map(goal => ({
+      label: t(goal.labelKey, this.textParams()),
+      met: this.conditionEvaluator.evaluate(goal.when, this.vnState),
+    }));
+    const stars = results.filter(goal => goal.met).length;
+    this.gameState.setChapterResult(this.vnState.currentChapter, stars, results.length);
+    return { goals: results, stars };
+  }
+
+  /** The preview text of a number input if the player picked `value`. */
+  private numberPreview(node: NumberInputNode, preview: NonNullable<NumberInputNode['preview']>, value: number): string {
+    const flags = { ...this.vnState.flags, [node.flag]: value };
+    const params: Record<string, string | number> = { ...(flags as Record<string, string | number>) };
+    for (const [name, expr] of Object.entries(preview.values ?? {})) {
+      params[name] = evaluateCalc(expr, this.calcContext(flags));
+    }
+    return t(preview.textKey, params);
   }
 
   getNodeById(id: string): ScriptNode | undefined {

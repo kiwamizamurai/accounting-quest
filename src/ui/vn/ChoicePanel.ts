@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH, FONT_FAMILY } from '../../config/constants';
 import { VIEW_WIDTH, HUD_HEIGHT, DIALOG_MARGIN, getViewHeight } from '../../config/layout';
-import { ChoiceOption } from '../../vn/types';
+import { ChoiceView } from '../../vn/types';
 import { t } from '../../i18n';
 
 const PANEL_MARGIN = 10;
@@ -49,7 +49,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
    * Show the question and one button per answer. For a quiz, pass `correctIndex`: after the player
    * answers, the right answer turns green and a wrong pick turns red before the panel closes.
    */
-  show(prompt: string, choices: ChoiceOption[], onSelect: (index: number) => void, correctIndex?: number): void {
+  show(prompt: string, choices: ChoiceView[], onSelect: (index: number) => void, correctIndex?: number): void {
     this.clearChoices();
     // Remove previous keyboard listeners before adding new ones
     this.removeKeyboard();
@@ -57,7 +57,7 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     this.onSelect = onSelect;
     this.correctIndex = correctIndex;
     this.selectedIndex = 0;
-    this.build(prompt, choices.map(choice => t(choice.labelKey)));
+    this.build(prompt, choices.map(choice => choice.label ?? t(choice.labelKey)));
 
     // Keyboard navigation
     this.scene.input.keyboard?.on('keydown-UP', this.navigateUp, this);

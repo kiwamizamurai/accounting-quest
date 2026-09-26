@@ -1,4 +1,4 @@
-import { getLanguage } from '../i18n';
+import { getLanguage } from '../i18n/language';
 
 /**
  * Currency unit shown after amounts: 円 in Japanese (matches the story text), G in English

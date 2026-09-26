@@ -34,12 +34,17 @@ Chapters are data-driven node graphs defined in `src/data/chapters/chapterN.ts`.
 
 `ScriptEngine` (`src/vn/ScriptEngine.ts`) executes these nodes and fires typed callbacks (`ScriptEngineCallback`) that `VNScene` handles. Node types are defined in `src/vn/types.ts`:
 
-- `dialog`, `narration` – display text via i18n key
-- `transaction` – records a journal entry and optionally animates it
-- `choice` / `quiz` / `journal_entry_input` – interactive nodes
+- `dialog`, `narration` – display text via i18n key (`{flag}` and `{flag:money}` are filled from the chapter's flags)
+- `transaction` – records a journal entry and optionally animates it; with `entry: 'player'` the player enters the entry themselves (retries, hint) and the correct one is recorded when they get it or run out of `attempts`
+- `choice` / `quiz` / `journal_entry_input` – interactive nodes; a choice option can be locked with `requires` + `lockedKey`
+- `number_input` – the player picks a number (min/max as expressions, live `preview`) and it is stored in a flag
+- `calc` – computes an expression (`CalcExpr`: flags, account balances, `add sub mul div min max`, `table`) into a flag
 - `report` – shows BS or P&L panel
 - `character_enter/exit`, `background`, `wait` – scene control
-- `conditional`, `set_flag` – branching logic
+- `conditional`, `set_flag` – branching logic (conditions include `flag_gte/lte`, `net_income_gte/lte`, `accuracy_gte`, `all`)
+- `chapter_end` – with `rating` (up to three goals) the stars earned are the number of goals met; the best result is kept in `ChapterProgress`
+
+Entry amounts can be a number or `{ flag: 'name' }` (see `Amount` in `src/vn/types.ts`); the engine resolves them before recording. `ChapterScript.opening` resets the books to fixed opening balances when the chapter starts, so a chapter does not depend on how the previous one went.
 
 ### Accounting Core
 
