@@ -47,6 +47,8 @@ Players learn accounting concepts progressively across three difficulty levels (
 
 Every transaction is recorded using double-entry bookkeeping, and players can view Balance Sheet, Income Statement, and Cash Flow Statement in real time.
 
+The game is laid out for a phone held upright: the scene is on top, and the text and everything you tap are below it, within reach of a thumb. On a desktop browser it is shown as a phone-shaped column in the middle of the window.
+
 ## Chapter Learning Content
 
 ### Chapter 1: Balance Sheet Foundations
@@ -300,13 +302,21 @@ The three statements together show the complete financial story: profitability (
 
 ## Controls
 
-| Key / Action | Function |
-|-------------|----------|
-| Click / Space / Enter | Advance dialog |
-| B | Toggle Balance Sheet panel |
-| P | Toggle Income Statement (P&L) panel |
+| Touch / mouse | Function |
+|---------------|----------|
+| Tap anywhere on the scene | Advance dialog (a first tap shows the rest of the line) |
+| Tap an answer | Choose it (a quiz shows the right answer before moving on) |
+| **BS** / **PL** buttons | Open the Balance Sheet / Income Statement; tap again, the tabs or **✕** to switch or close |
+| Drag inside a statement or the account list | Scroll |
+| Gear button | Settings (BGM, volume) |
+
+| Key | Function |
+|-----|----------|
+| Space / Enter | Advance dialog, or pick the highlighted answer |
+| Up / Down, 1-9 | Move through / pick an answer; Up / Down also scroll an open statement |
+| B / P | Toggle the Balance Sheet / Income Statement |
+| Esc | Close the open statement |
 | S | Save game |
-| Click on BS/PL buttons | Toggle respective panels |
 
 ## Getting Started
 
@@ -327,7 +337,7 @@ npm run dev       # http://localhost:3000
 | `npm run lint` | Type-check only (`tsc --noEmit`, strict mode) |
 | `npm test` | Run unit tests in watch mode (`npx vitest run` for a single run) |
 | `npm run test:coverage` | Run unit tests once with a coverage report |
-| `npm run deploy` | Build and publish to GitHub Pages |
+| `npm run deploy` | Build and publish to GitHub Pages by hand (every push to `main` is also deployed by GitHub Actions) |
 
 Progress is saved to your browser's `localStorage`.
 
@@ -343,7 +353,7 @@ Progress is saved to your browser's `localStorage`.
 
 ```
 src/
-├── config/     Game options, chapter registry, constants
+├── config/     Game options, chapter registry, constants, portrait layout (layout.ts)
 ├── data/       Chapter scripts (chapters/chapterN.ts) and characters
 ├── engine/     Accounting engine and transaction processor
 ├── i18n/       ja.json / en.json and the t(key) helper
@@ -351,7 +361,7 @@ src/
 ├── models/     Account, Chapter, GameState, Transaction types
 ├── scenes/     Boot, Title, LevelSelect, ChapterTitle, VN scenes
 ├── state/      GameStateManager and save/load
-├── ui/         Dialog, choice, statement and animation components
+├── ui/         Top bar, dialog, choice, statement, journal entry and animation components
 ├── utils/      Color palette, money formatting
 └── vn/         Script engine, node types, condition evaluator
 tests/          Unit tests (Vitest)
