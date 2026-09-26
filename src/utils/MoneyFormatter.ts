@@ -30,6 +30,18 @@ export function formatMoney(amount: number, showSign: boolean = false): string {
 }
 
 /**
+ * Format an amount for a cell of a statement table: no unit (the table states it once), and a
+ * negative amount as △50 in Japanese, the way a statement writes it, or -50 in English
+ */
+export function formatAmount(amount: number): string {
+  const formatted = new Intl.NumberFormat('ja-JP').format(Math.abs(amount));
+  if (amount < 0) {
+    return getLanguage() === 'ja' ? `△${formatted}` : `-${formatted}`;
+  }
+  return formatted;
+}
+
+/**
  * Format a number with commas
  */
 export function formatNumber(num: number): string {

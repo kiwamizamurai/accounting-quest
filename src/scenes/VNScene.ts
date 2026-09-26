@@ -72,8 +72,6 @@ export class VNScene extends Phaser.Scene {
   private langButton!: HudButton;
   private bsButton!: HudButton;
   private plButton!: HudButton;
-  private equationText!: Phaser.GameObjects.Text;
-  private lastEquation = '';
   private autoSaveTimer?: Phaser.Time.TimerEvent;
   private settingsPanel?: SettingsPanel;
 
@@ -128,7 +126,6 @@ export class VNScene extends Phaser.Scene {
     this.scorecard.onChange = () => this.onReportSheetChanged();
 
     this.createHud(chapterId, lang);
-    this.createEquationStrip();
 
     // Register shutdown handler for cleanup
     this.events.on('shutdown', this.shutdown, this);
@@ -429,7 +426,6 @@ export class VNScene extends Phaser.Scene {
     this.scorecard.update(bs);
     const is = gameState.getIncomeStatement();
     this.scorecard.updateIncomeStatement(is);
-    this.updateEquation(bs.totalAssets, bs.totalLiabilities, bs.totalEquity, bs.isBalanced);
   }
 
   /** Scale and place the stage so the scene art fills the area between the top bar and the dialog. */
@@ -461,52 +457,6 @@ export class VNScene extends Phaser.Scene {
       }
     });
     this.hud.addButton('\u2699', 36, HUD_COLORS.neutral, () => this.showSettingsPanel());
-  }
-
-  /** Bottom strip: assets = liabilities + equity, always in view; tap it to open the balance sheet. */
-  private createEquationStrip(): void {
-    const { strip } = getVNLayout();
-    const bar = this.add.graphics();
-    bar.fillStyle(0x0a0a1e, 0.94);
-    bar.fillRect(strip.x, strip.y, strip.w, strip.h);
-    bar.lineStyle(1, 0x2a2a4a, 1);
-    bar.lineBetween(strip.x, strip.y + 0.5, strip.x + strip.w, strip.y + 0.5);
-    bar.setDepth(DEPTH.UI_PANEL);
-
-    this.equationText = this.add.text(strip.x + strip.w / 2, strip.y + strip.h / 2, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '13px',
-      color: '#aab0c8',
-      padding: { top: 4, bottom: 4 },
-    });
-    this.equationText.setOrigin(0.5);
-    this.equationText.setDepth(DEPTH.UI_PANEL);
-
-    const zone = this.add.zone(strip.x + strip.w / 2, strip.y + strip.h / 2, strip.w, strip.h);
-    zone.setInteractive({ useHandCursor: true });
-    zone.on('pointerup', () => this.scorecard.toggle());
-    zone.setDepth(DEPTH.UI_PANEL);
-  }
-
-  private updateEquation(assets: number, liabilities: number, equity: number, balanced: boolean): void {
-    const ja = getLanguage() === 'ja';
-    const text = ja
-      ? `資産 ${formatMoney(assets)} ＝ 負債 ${formatMoney(liabilities)} ＋ 純資産 ${formatMoney(equity)}`
-      : `Assets ${formatMoney(assets)} = Liabilities ${formatMoney(liabilities)} + Equity ${formatMoney(equity)}`;
-    this.equationText.setText(text);
-    this.equationText.setColor(balanced ? '#aab0c8' : '#ef4444');
-    // A long line shrinks to stay inside the strip
-    const room = VIEW_WIDTH - 20;
-    this.equationText.setScale(this.equationText.width > room ? room / this.equationText.width : 1);
-
-    // Flash when the numbers change so a posted entry is noticed
-    if (this.lastEquation && this.lastEquation !== text) {
-      this.equationText.setColor('#ffd700');
-      this.time.delayedCall(700, () => {
-        if (this.equationText.active) this.equationText.setColor(balanced ? '#aab0c8' : '#ef4444');
-      });
-    }
-    this.lastEquation = text;
   }
 
   /** The report sheet opened or closed: keep the dialog readable below it and the choices out of its way. */
