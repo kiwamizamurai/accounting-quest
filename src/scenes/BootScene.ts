@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SCENES, COLORS, GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY } from '../config/constants';
+import { SCENES, COLORS, GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY, TITLE_ICON_KEY } from '../config/constants';
 import { applyRenderScale } from '../utils/renderScale';
 import { getAudioManager } from '../managers/AudioManager';
 
@@ -41,6 +41,9 @@ export class BootScene extends Phaser.Scene {
       progressBarBg.destroy();
       loadingText.destroy();
     });
+
+    // Game icon for the title screen (vector, so it stays sharp at the canvas's high resolution)
+    this.load.svg(TITLE_ICON_KEY, `${import.meta.env.BASE_URL}favicon.svg`, { width: 256, height: 256 });
 
     // Preload audio assets
     getAudioManager().preload(this);
