@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION } from '../../config/constants';
+import { COLORS, DEPTH, GAME_WIDTH, GAME_HEIGHT, ANIMATION, FONT_FAMILY } from '../../config/constants';
 
 export interface DialogLine {
   speaker?: string;
@@ -50,7 +50,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
 
     // Create speaker name text
     this.speakerText = scene.add.text(this.boxX + this.padding, this.boxY + 8, '', {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '16px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -64,7 +64,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
       this.boxY + 36,
       '',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#ffffff',
         wordWrap: { width: this.boxWidth - this.padding * 2 - 80, useAdvancedWrap: true },
@@ -80,7 +80,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
       this.boxY + this.boxHeight - 25,
       '▼',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '16px',
         color: '#ffffff',
         padding: { top: 4, bottom: 4 },

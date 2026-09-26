@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { gameConfig } from './config/game.config';
+import { enableCrispText } from './utils/renderScale';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { LevelSelectScene } from './scenes/LevelSelectScene';
@@ -38,5 +39,6 @@ class AccountingGame extends Phaser.Game {
 }
 
 window.addEventListener('load', () => {
+  enableCrispText();
   new AccountingGame();
 });

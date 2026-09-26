@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY } from '../config/constants';
+import { applyRenderScale } from '../utils/renderScale';
 import { t } from '../i18n';
 
 interface ChapterTitleData {
@@ -12,6 +13,7 @@ export class ChapterTitleScene extends Phaser.Scene {
   }
 
   create(data: ChapterTitleData): void {
+    applyRenderScale(this);
     const chapterId = data.chapterId ?? 1;
 
     // Dark background
@@ -23,7 +25,7 @@ export class ChapterTitleScene extends Phaser.Scene {
       GAME_HEIGHT / 2 - 60,
       t('ui.chapterNumber', { n: chapterId }),
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '20px',
         color: '#6a6a8a',
         padding: { top: 4, bottom: 4 },
@@ -38,7 +40,7 @@ export class ChapterTitleScene extends Phaser.Scene {
       GAME_HEIGHT / 2,
       t(`ch${chapterId}.title`),
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '28px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -54,7 +56,7 @@ export class ChapterTitleScene extends Phaser.Scene {
       GAME_HEIGHT / 2 + 50,
       t(`ch${chapterId}.subtitle`),
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#aaaacc',
         padding: { top: 4, bottom: 4 },

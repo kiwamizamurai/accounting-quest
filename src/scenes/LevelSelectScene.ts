@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, FONT_FAMILY } from '../config/constants';
 import { Button } from '../ui/components/Button';
 import { getLanguage } from '../i18n';
 import { LEVEL_CONFIGS, GameLevel } from '../config/chapters.config';
+import { applyRenderScale } from '../utils/renderScale';
 import { initGameStateManager } from '../state/GameStateManager';
 
 interface LevelSelectData {
@@ -18,6 +19,7 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   create(data: LevelSelectData): void {
+    applyRenderScale(this);
     this.playerName = data.playerName ?? (getLanguage() === 'ja' ? '勇者' : 'Hero');
     this.uiElements = [];
 
@@ -39,7 +41,7 @@ export class LevelSelectScene extends Phaser.Scene {
       50,
       lang === 'ja' ? 'レベルを選択' : 'Select Level',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '28px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -101,7 +103,7 @@ export class LevelSelectScene extends Phaser.Scene {
 
     // Level badge
     const badge = this.add.text(x, bgY + 25, `Lv.${level}`, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '14px',
       color: '#ffffff',
       backgroundColor: `#${borderColor.toString(16).padStart(6, '0')}`,
@@ -113,7 +115,7 @@ export class LevelSelectScene extends Phaser.Scene {
     // Title
     const titleText = lang === 'ja' ? config.titleJa : config.title;
     const titleObj = this.add.text(x, bgY + 65, titleText, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '16px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -127,7 +129,7 @@ export class LevelSelectScene extends Phaser.Scene {
     // Subtitle
     const subtitleText = lang === 'ja' ? config.subtitleJa : config.subtitle;
     const subtitleObj = this.add.text(x, bgY + 95, subtitleText, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '11px',
       color: '#aaaacc',
       align: 'center',
@@ -146,7 +148,7 @@ export class LevelSelectScene extends Phaser.Scene {
     // Description
     const descText = lang === 'ja' ? config.descriptionJa : config.description;
     const descObj = this.add.text(x, bgY + 130, descText, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '10px',
       color: '#8888aa',
       align: 'center',
@@ -163,7 +165,7 @@ export class LevelSelectScene extends Phaser.Scene {
       ? `${chapterCount}章`
       : `${chapterCount} Chapters`;
     const chapterObj = this.add.text(x, bgY + height - 65, chapterText, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '11px',
       color: '#6a6a8a',
       padding: { top: 4, bottom: 4 },

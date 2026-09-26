@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, DEPTH, FONT_FAMILY } from '../../config/constants';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { t } from '../../i18n';
 
@@ -60,7 +60,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
 
     // Title
     const titleText = this.scene.add.text(cx, boxY + 16, description, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '15px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -80,14 +80,14 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     const debitHeader = this.scene.add.text(
       boxX + boxWidth - 160, headerY + 4,
       t('ui.debit'),
-      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#4a90d9', padding: { top: 4, bottom: 4 } }
+      { fontFamily: FONT_FAMILY, fontSize: '12px', color: '#4a90d9', padding: { top: 4, bottom: 4 } }
     );
     this.animContainer.add(debitHeader);
 
     const creditHeader = this.scene.add.text(
       boxX + boxWidth - 80, headerY + 4,
       t('ui.credit'),
-      { fontFamily: '"Courier New", monospace', fontSize: '12px', color: '#d94a4a', padding: { top: 4, bottom: 4 } }
+      { fontFamily: FONT_FAMILY, fontSize: '12px', color: '#d94a4a', padding: { top: 4, bottom: 4 } }
     );
     this.animContainer.add(creditHeader);
 
@@ -127,7 +127,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
     const indent = isCredit ? '  ' : '';
 
     const nameText = this.scene.add.text(x, y, `${indent}${name}`, {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '14px',
       color: '#ffffff',
       padding: { top: 4, bottom: 4 },
@@ -141,7 +141,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
         y,
         formatMoney(entry.debit!),
         {
-          fontFamily: '"Courier New", monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '14px',
           color: '#4a90d9',
           padding: { top: 4, bottom: 4 },
@@ -164,7 +164,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
         y,
         formatMoney(entry.credit!),
         {
-          fontFamily: '"Courier New", monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '14px',
           color: '#d94a4a',
           padding: { top: 4, bottom: 4 },
@@ -196,7 +196,7 @@ export class TransactionAnimation extends Phaser.GameObjects.Container {
       boxBottomY + 10,
       `>> ${t('ui.clickToContinue')}`,
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '13px',
         color: '#ffffff',
         padding: { top: 4, bottom: 4 },

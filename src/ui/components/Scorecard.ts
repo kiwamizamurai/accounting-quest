@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_CHOICE_TOP, VN_DIALOG_TOP } from '../../config/constants';
+import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_CHOICE_TOP, VN_DIALOG_TOP, FONT_FAMILY } from '../../config/constants';
 import { CHOICE_PANEL_HIDDEN, CHOICE_PANEL_SHOWN } from '../vn/ChoicePanel';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
@@ -15,26 +15,19 @@ import { getLanguage } from '../../i18n';
  */
 export class Scorecard extends Phaser.GameObjects.Container {
   // ---- layout constants ----
-  // Panel geometry. It changes with the layout: one panel is wide and centred; with both open
-  // they sit side by side, each taking half of the canvas (see applyGeometry).
-  private static readonly FULL_PANEL_WIDTH = 740;
-  private static readonly SIDE_PANEL_WIDTH = 376;
-  private static readonly SIDE_MARGIN = 16;
-  // Below this displayed canvas width (CSS px) two panels cannot both stay legible
+  // Panel geometry: one panel at a time, wide and centred
+  private readonly panelWidth = 740;
+  private readonly panelX = 30;
+  private readonly halfWidth = 370; // panelWidth / 2
+  // Below this displayed canvas width (CSS px) the panel is drawn over the dialog box instead
   private static readonly COMPACT_DISPLAY_WIDTH = 620;
-  private panelWidth = Scorecard.FULL_PANEL_WIDTH;
-  private panelX = 30;
-  private halfWidth = 370; // panelWidth / 2
-  private layout: 'stacked' | 'side' = 'stacked';
   private choiceOpen = false; // a choice / quiz prompt is on screen
-  private lastBalanceSheet?: BalanceSheet;
-  private lastIncomeStatement?: IncomeStatement;
   private readonly basePanelY = 50;
-  private readonly lineHeight = 18;
+  private readonly lineHeight = 19;
   private readonly itemPadding = 8;
   private readonly minPanelScale = 0.5;
 
-  // Holds both panel bodies so they can be scaled down together to fit above the dialog box
+  // Holds the panel bodies so the open one can be scaled down to fit above the dialog box
   private panelGroup: Phaser.GameObjects.Container;
 
   // ---- BS panel ----
@@ -93,7 +86,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       this.basePanelY + 12,
       lang === 'ja' ? '\u8CB8\u501F\u5BFE\u7167\u8868 (B/S)' : 'Balance Sheet',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '15px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -113,7 +106,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       this.basePanelY + 180,
       '',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '11px',
         color: '#22c55e',
         fontStyle: 'bold',
@@ -138,7 +131,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
       this.basePanelY + 12,
       lang === 'ja' ? '\u640D\u76CA\u8A08\u7B97\u66F8 (P/L)' : 'Income Statement',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '15px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -157,8 +150,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     this.bsToggleBtn = scene.add.container(0, 0);
     this.bsToggleBtnBg = scene.add.graphics();
     this.bsToggleBtnText = scene.add.text(0, 0, '', {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: '#ffd700',
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -170,8 +163,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     this.plToggleBtn = scene.add.container(0, 0);
     this.plToggleBtnBg = scene.add.graphics();
     this.plToggleBtnText = scene.add.text(0, 0, '', {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: '#ffd700',
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -297,8 +290,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     color: number
   ): void {
     const t = this.scene.add.text(colX + this.itemPadding, y, text, {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: Phaser.Display.Color.IntegerToColor(color).rgba,
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -316,8 +309,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     color: number
   ): void {
     const labelText = this.scene.add.text(colX + this.itemPadding + 8, y, label, {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: '#eeeeee',
       padding: { top: 4, bottom: 4 },
     });
@@ -328,8 +321,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       y,
       formatMoney(amount),
       {
-        fontFamily: '"Courier New", monospace',
-        fontSize: '12px',
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
         fontStyle: 'bold',
         color: Phaser.Display.Color.IntegerToColor(color).rgba,
         padding: { top: 4, bottom: 4 },
@@ -338,7 +331,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
     amountText.setOrigin(1, 0);
     container.add(amountText);
 
-    // Long account names would run into the amount in the narrower side-by-side layout
+    // A long account name must never run into its amount
     const room = this.halfWidth - this.itemPadding * 2 - 13 - amountText.width - 6;
     if (labelText.width > room && room > 0) {
       labelText.setScale(room / labelText.width);
@@ -365,8 +358,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     container.add(line);
 
     const labelText = this.scene.add.text(colX + this.itemPadding, y, label, {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: '#ffffff',
       fontStyle: bold ? 'bold' : 'normal',
       padding: { top: 4, bottom: 4 },
@@ -378,8 +371,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       y,
       formatMoney(amount),
       {
-        fontFamily: '"Courier New", monospace',
-        fontSize: '12px',
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
         color: Phaser.Display.Color.IntegerToColor(color).rgba,
         fontStyle: bold ? 'bold' : 'normal',
         padding: { top: 4, bottom: 4 },
@@ -409,8 +402,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     container.add(dblLine);
 
     const labelText = this.scene.add.text(colX + this.itemPadding, y, label, {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: '#ffd700',
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -422,8 +415,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       y,
       formatMoney(amount),
       {
-        fontFamily: '"Courier New", monospace',
-        fontSize: '12px',
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
         color: '#ffd700',
         fontStyle: 'bold',
         padding: { top: 4, bottom: 4 },
@@ -442,10 +435,6 @@ export class Scorecard extends Phaser.GameObjects.Container {
    */
   update(balanceSheet: BalanceSheet): void {
     const lang = getLanguage();
-    this.lastBalanceSheet = balanceSheet;
-    this.applyGeometry('bs');
-    this.bsTitleText.setX(this.panelX + this.panelWidth / 2);
-    this.bsBalanceIndicator.setX(this.panelX + this.panelWidth / 2);
     this.bsTitleText.setText(lang === 'ja' ? '貸借対照表 (B/S)' : 'Balance Sheet');
     this.clearContainer(this.bsLeftContainer);
     this.clearContainer(this.bsRightContainer);
@@ -596,9 +585,6 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
   private renderIncomeStatement(is: IncomeStatement): void {
     const lang = getLanguage();
-    this.lastIncomeStatement = is;
-    this.applyGeometry('pl');
-    this.plTitleText.setX(this.panelX + this.panelWidth / 2);
     this.plTitleText.setText(lang === 'ja' ? '損益計算書 (P/L)' : 'Income Statement');
     this.clearContainer(this.plLeftContainer);
     this.clearContainer(this.plRightContainer);
@@ -676,8 +662,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
       : `${niLabel}  ${formatMoney(is.totalRevenue)} - ${formatMoney(is.totalExpenses)} = ${formatMoney(is.netIncome)}`;
 
     const formulaLabel = this.scene.add.text(leftX + this.itemPadding, formulaY, formulaText, {
-      fontFamily: '"Courier New", monospace',
-      fontSize: '12px',
+      fontFamily: FONT_FAMILY,
+      fontSize: '13px',
       color: niColor,
       fontStyle: 'bold',
       padding: { top: 4, bottom: 4 },
@@ -697,29 +683,32 @@ export class Scorecard extends Phaser.GameObjects.Container {
   //  Toggle / positioning
   // =========================================================================
 
+  /** Show the balance sheet; it replaces the income statement if that is open. */
   toggle(): void {
     this.isBsExpanded = !this.isBsExpanded;
-    if (this.isBsExpanded && this.isCompactDisplay() && this.isPlExpanded) {
-      this.isPlExpanded = false; // small screens: one panel at a time
-      this.plBodyContainer.setVisible(false);
+    if (this.isBsExpanded) {
+      this.isPlExpanded = false;
     }
-    this.bsBodyContainer.setVisible(this.isBsExpanded);
-    this.updateLayout();
-    this.drawToggleButtons();
+    this.syncPanels();
   }
 
+  /** Show the income statement; it replaces the balance sheet if that is open. */
   togglePl(): void {
     this.isPlExpanded = !this.isPlExpanded;
-    if (this.isPlExpanded && this.isCompactDisplay() && this.isBsExpanded) {
+    if (this.isPlExpanded) {
       this.isBsExpanded = false;
-      this.bsBodyContainer.setVisible(false);
     }
+    this.syncPanels();
+  }
+
+  private syncPanels(): void {
+    this.bsBodyContainer.setVisible(this.isBsExpanded);
     this.plBodyContainer.setVisible(this.isPlExpanded);
-    this.updateLayout();
+    this.fitPanels();
     this.drawToggleButtons();
   }
 
-  /** Small displayed canvas (phones, narrow windows): panels open one at a time, over the dialog. */
+  /** Small displayed canvas (phones, narrow windows): the panel is drawn over the dialog box. */
   private isCompactDisplay(): boolean {
     return this.scene.scale.displaySize.width < Scorecard.COMPACT_DISPLAY_WIDTH;
   }
@@ -735,43 +724,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
   }
 
   private onResize(): void {
-    if (this.isCompactDisplay() && this.isBsExpanded && this.isPlExpanded) {
-      this.isPlExpanded = false;
-      this.plBodyContainer.setVisible(false);
-      this.drawToggleButtons();
-    }
-    this.updateLayout();
-  }
-
-  /**
-   * BS and PL sit side by side when both are open, and centred at full width when only one is.
-   * A layout change redraws both panels with their new geometry.
-   */
-  private updateLayout(): void {
-    const wanted = this.isBsExpanded && this.isPlExpanded ? 'side' : 'stacked';
-    if (wanted !== this.layout) {
-      this.layout = wanted;
-      if (this.lastBalanceSheet) {
-        this.update(this.lastBalanceSheet);
-      }
-      if (this.lastIncomeStatement) {
-        this.renderIncomeStatement(this.lastIncomeStatement);
-      }
-    }
     this.fitPanels();
-  }
-
-  private applyGeometry(panel: 'bs' | 'pl'): void {
-    if (this.layout === 'side') {
-      this.panelWidth = Scorecard.SIDE_PANEL_WIDTH;
-      this.panelX = panel === 'bs'
-        ? Scorecard.SIDE_MARGIN
-        : GAME_WIDTH - Scorecard.SIDE_MARGIN - Scorecard.SIDE_PANEL_WIDTH;
-    } else {
-      this.panelWidth = Scorecard.FULL_PANEL_WIDTH;
-      this.panelX = (GAME_WIDTH - Scorecard.FULL_PANEL_WIDTH) / 2;
-    }
-    this.halfWidth = this.panelWidth / 2;
   }
 
   /**
@@ -782,10 +735,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
    */
   private fitPanels(): void {
     const compact = this.isCompactDisplay();
-    const bsHeight = this.isBsExpanded ? this.lastBsHeight : 0;
-    const plHeight = this.isPlExpanded ? this.lastPlHeight : 0;
-    // Side by side the panels share the height; stacked (only one is open) it is that panel's height
-    const total = this.layout === 'side' ? Math.max(bsHeight, plHeight) : bsHeight + plHeight;
+    const total = this.isBsExpanded ? this.lastBsHeight : this.isPlExpanded ? this.lastPlHeight : 0;
     // A choice / quiz prompt sits in the lower half, so the panels shrink to stay above it
     const bottom = this.choiceOpen ? VN_CHOICE_TOP : compact ? GAME_HEIGHT - 12 : VN_DIALOG_TOP;
     const available = bottom - this.basePanelY;

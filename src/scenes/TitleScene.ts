@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH, FONT_FAMILY } from '../config/constants';
 import { Button } from '../ui/components/Button';
 import { getLanguage, setLanguage, t } from '../i18n';
 import { SaveLoadManager } from '../state/SaveLoadManager';
 import { GameStateManager, getGameStateManager } from '../state/GameStateManager';
+import { applyRenderScale } from '../utils/renderScale';
 import { getAudioManager } from '../managers/AudioManager';
 
 export class TitleScene extends Phaser.Scene {
@@ -17,6 +18,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyRenderScale(this);
     this.uiElements = [];
 
     // Create starfield
@@ -45,7 +47,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Title
     const title = this.add.text(GAME_WIDTH / 2, 120, t('menu.title'), {
-      fontFamily: '"Courier New", monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '36px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -59,7 +61,7 @@ export class TitleScene extends Phaser.Scene {
       170,
       lang === 'ja' ? 'レモネードスタンドで学ぶ会計入門' : 'Learn Accounting Through a Lemonade Stand',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '16px',
         color: '#aaaacc',
         padding: { top: 4, bottom: 4 },
@@ -84,7 +86,7 @@ export class TitleScene extends Phaser.Scene {
       210,
       lang === 'ja' ? '~ ビジュアルノベル ~' : '~ A Visual Novel ~',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#6a6a8a',
         padding: { top: 4, bottom: 4 },
@@ -134,7 +136,7 @@ export class TitleScene extends Phaser.Scene {
       20,
       lang === 'ja' ? 'EN' : 'JA',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
         backgroundColor: '#4a4a6a',
@@ -155,7 +157,7 @@ export class TitleScene extends Phaser.Scene {
       GAME_HEIGHT - 40,
       lang === 'ja' ? 'Space/Enter: 決定 | 矢印キー: 選択' : 'Space/Enter: Select | Arrow Keys: Navigate',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: '#6a6a8a',
         padding: { top: 4, bottom: 4 },
@@ -216,7 +218,7 @@ export class TitleScene extends Phaser.Scene {
       boxY + 25,
       lang === 'ja' ? 'ロード' : 'Load Game',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -248,7 +250,7 @@ export class TitleScene extends Phaser.Scene {
         this.uiElements.push(btn);
       } else {
         const empty = this.add.text(GAME_WIDTH / 2, slotY, `${entry.label}: ${lang === 'ja' ? '空き' : 'Empty'}`, {
-          fontFamily: '"Courier New", monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '14px',
           color: '#6a6a8a',
           padding: { top: 4, bottom: 4 },
@@ -309,7 +311,7 @@ export class TitleScene extends Phaser.Scene {
       panelY + 20,
       lang === 'ja' ? '設定' : 'Settings',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '20px',
         color: '#ffd700',
         fontStyle: 'bold',
@@ -326,7 +328,7 @@ export class TitleScene extends Phaser.Scene {
       bgmLabelY,
       lang === 'ja' ? 'BGM: ' : 'BGM: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
       }
@@ -368,7 +370,7 @@ export class TitleScene extends Phaser.Scene {
       musicVolumeLabelY,
       lang === 'ja' ? '音楽音量: ' : 'Music: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: '#ffffff',
       }
@@ -395,7 +397,7 @@ export class TitleScene extends Phaser.Scene {
     musicSliderArea.setInteractive({ useHandCursor: true });
     musicSliderArea.setDepth(DEPTH.TRANSITION);
     musicSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.x - (panelX + 30);
+      const localX = pointer.worldX - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ musicVolume: newVolume });
       getAudioManager().setMusicVolume(newVolume);
@@ -412,7 +414,7 @@ export class TitleScene extends Phaser.Scene {
       sfxVolumeLabelY,
       lang === 'ja' ? 'SFX音量: ' : 'SFX: ',
       {
-        fontFamily: '"Courier New", monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: '#ffffff',
       }
@@ -439,7 +441,7 @@ export class TitleScene extends Phaser.Scene {
     sfxSliderArea.setInteractive({ useHandCursor: true });
     sfxSliderArea.setDepth(DEPTH.TRANSITION);
     sfxSliderArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const localX = pointer.x - (panelX + 30);
+      const localX = pointer.worldX - (panelX + 30);
       const newVolume = Math.max(0, Math.min(1, localX / 300));
       gameState.updateSettings({ sfxVolume: newVolume });
       sfxSliderFill.clear();

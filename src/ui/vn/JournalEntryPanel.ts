@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH } from '../../config/constants';
+import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, FONT_FAMILY } from '../../config/constants';
 import { AccountType } from '../../models/Account';
 import { t } from '../../i18n';
 import { formatMoney } from '../../utils/MoneyFormatter';
@@ -51,7 +51,7 @@ interface MiniButton {
   setFilled(filled: boolean): void;
 }
 
-const FONT = '"Courier New", monospace';
+const FONT = FONT_FAMILY;
 const MAX_AMOUNT_DIGITS = 9;
 
 const TAB_TYPES: { type: AccountType; key: string }[] = [
