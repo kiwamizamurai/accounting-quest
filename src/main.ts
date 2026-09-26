@@ -39,9 +39,4 @@ class AccountingGame extends Phaser.Game {
 
 window.addEventListener('load', () => {
   new AccountingGame();
-
-  // Load test bridge in development mode for E2E testing
-  if (import.meta.env.DEV) {
-    import('./test-bridge');
-  }
 });
