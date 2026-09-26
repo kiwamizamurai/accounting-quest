@@ -262,8 +262,8 @@ export class JournalEntryPanel extends Phaser.GameObjects.Container {
     const lineCount = Math.max(1, this.config.debitCount) + Math.max(1, this.config.creditCount);
     const room = endY - startY - 2 * (sectionHeader + 4) - sectionGap;
     const rowHeight = Math.max(40, Math.min(60, Math.floor(room / lineCount)));
-    const accountWidth = 196;
-    const amountWidth = 116;
+    const accountWidth = 200;
+    const amountWidth = 128;
     const left = 12;
 
     let y = startY;
