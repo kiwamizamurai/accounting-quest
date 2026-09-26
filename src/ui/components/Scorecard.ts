@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH, GAME_WIDTH, VN_DIALOG_TOP } from '../../config/constants';
+import { COLORS, DEPTH, GAME_HEIGHT, GAME_WIDTH, VN_DIALOG_TOP } from '../../config/constants';
 import { BalanceSheet, IncomeStatement } from '../../engine/accounting/AccountingEngine';
 import { formatMoney } from '../../utils/MoneyFormatter';
 import { getLanguage } from '../../i18n';
@@ -14,13 +14,22 @@ import { getLanguage } from '../../i18n';
  */
 export class Scorecard extends Phaser.GameObjects.Container {
   // ---- layout constants ----
-  private readonly panelWidth = 740;
-  private readonly panelX = 30;
-  private readonly halfWidth = 370; // panelWidth / 2
+  // Panel geometry. It changes with the layout: one panel is wide and centred; with both open
+  // they sit side by side, each taking half of the canvas (see applyGeometry).
+  private static readonly FULL_PANEL_WIDTH = 740;
+  private static readonly SIDE_PANEL_WIDTH = 376;
+  private static readonly SIDE_MARGIN = 16;
+  // Below this displayed canvas width (CSS px) two panels cannot both stay legible
+  private static readonly COMPACT_DISPLAY_WIDTH = 620;
+  private panelWidth = Scorecard.FULL_PANEL_WIDTH;
+  private panelX = 30;
+  private halfWidth = 370; // panelWidth / 2
+  private layout: 'stacked' | 'side' = 'stacked';
+  private lastBalanceSheet?: BalanceSheet;
+  private lastIncomeStatement?: IncomeStatement;
   private readonly basePanelY = 50;
   private readonly lineHeight = 18;
   private readonly itemPadding = 8;
-  private readonly panelGap = 10; // between the BS and PL panels when both are open
   private readonly minPanelScale = 0.5;
 
   // Holds both panel bodies so they can be scaled down together to fit above the dialog box
@@ -192,6 +201,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     this.setScrollFactor(0);
     scene.add.existing(this);
 
+    scene.scale.on('resize', this.onResize, this);
+
     // Start collapsed
     this.bsBodyContainer.setVisible(false);
     this.plBodyContainer.setVisible(false);
@@ -322,6 +333,12 @@ export class Scorecard extends Phaser.GameObjects.Container {
     );
     amountText.setOrigin(1, 0);
     container.add(amountText);
+
+    // Long account names would run into the amount in the narrower side-by-side layout
+    const room = this.halfWidth - this.itemPadding * 2 - 13 - amountText.width - 6;
+    if (labelText.width > room && room > 0) {
+      labelText.setScale(room / labelText.width);
+    }
   }
 
   /** Total row with separator line above */
@@ -421,6 +438,10 @@ export class Scorecard extends Phaser.GameObjects.Container {
    */
   update(balanceSheet: BalanceSheet): void {
     const lang = getLanguage();
+    this.lastBalanceSheet = balanceSheet;
+    this.applyGeometry('bs');
+    this.bsTitleText.setX(this.panelX + this.panelWidth / 2);
+    this.bsBalanceIndicator.setX(this.panelX + this.panelWidth / 2);
     this.bsTitleText.setText(lang === 'ja' ? '貸借対照表 (B/S)' : 'Balance Sheet');
     this.clearContainer(this.bsLeftContainer);
     this.clearContainer(this.bsRightContainer);
@@ -546,8 +567,6 @@ export class Scorecard extends Phaser.GameObjects.Container {
     this.drawPanelBg(this.bsBackground, this.bsDivider, this.lastBsHeight);
     this.fitPanels();
 
-    // Reposition PL below if BS is open
-    this.repositionPlPanel();
   }
 
   /**
@@ -573,6 +592,9 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
   private renderIncomeStatement(is: IncomeStatement): void {
     const lang = getLanguage();
+    this.lastIncomeStatement = is;
+    this.applyGeometry('pl');
+    this.plTitleText.setX(this.panelX + this.panelWidth / 2);
     this.plTitleText.setText(lang === 'ja' ? '損益計算書 (P/L)' : 'Income Statement');
     this.clearContainer(this.plLeftContainer);
     this.clearContainer(this.plRightContainer);
@@ -673,49 +695,93 @@ export class Scorecard extends Phaser.GameObjects.Container {
 
   toggle(): void {
     this.isBsExpanded = !this.isBsExpanded;
+    if (this.isBsExpanded && this.isCompactDisplay() && this.isPlExpanded) {
+      this.isPlExpanded = false; // small screens: one panel at a time
+      this.plBodyContainer.setVisible(false);
+    }
     this.bsBodyContainer.setVisible(this.isBsExpanded);
-    this.fitPanels();
+    this.updateLayout();
     this.drawToggleButtons();
   }
 
   togglePl(): void {
     this.isPlExpanded = !this.isPlExpanded;
+    if (this.isPlExpanded && this.isCompactDisplay() && this.isBsExpanded) {
+      this.isBsExpanded = false;
+      this.bsBodyContainer.setVisible(false);
+    }
     this.plBodyContainer.setVisible(this.isPlExpanded);
-    this.fitPanels();
+    this.updateLayout();
     this.drawToggleButtons();
   }
 
-  /**
-   * Keep the open panels above the VN dialog box. With both BS and PL open (and more accounts in
-   * Lv2/Lv3) they are taller than the space above the dialog, so the whole group is scaled down
-   * until it fits: the top edge stays at basePanelY and the horizontal centre stays put.
-   */
-  private fitPanels(): void {
-    this.repositionPlPanel();
+  /** Small displayed canvas (phones, narrow windows): panels open one at a time, over the dialog. */
+  private isCompactDisplay(): boolean {
+    return this.scene.scale.displaySize.width < Scorecard.COMPACT_DISPLAY_WIDTH;
+  }
 
-    const bsHeight = this.isBsExpanded ? this.lastBsHeight : 0;
-    const plHeight = this.isPlExpanded ? this.lastPlHeight : 0;
-    const total = bsHeight + plHeight + (bsHeight > 0 && plHeight > 0 ? this.panelGap : 0);
-    const available = VN_DIALOG_TOP - this.basePanelY;
-    const scale = total > available ? Math.max(this.minPanelScale, available / total) : 1;
-
-    this.panelGroup.setScale(scale);
-    this.panelGroup.setPosition(
-      (this.panelX + this.panelWidth / 2) * (1 - scale),
-      this.basePanelY * (1 - scale)
-    );
+  private onResize(): void {
+    if (this.isCompactDisplay() && this.isBsExpanded && this.isPlExpanded) {
+      this.isPlExpanded = false;
+      this.plBodyContainer.setVisible(false);
+      this.drawToggleButtons();
+    }
+    this.updateLayout();
   }
 
   /**
-   * Shift PL panel below BS when BS is expanded, or back to top when collapsed.
-   * Uses container Y offset so PL content coordinates stay relative to basePanelY.
+   * BS and PL sit side by side when both are open, and centred at full width when only one is.
+   * A layout change redraws both panels with their new geometry.
    */
-  private repositionPlPanel(): void {
-    if (this.isBsExpanded) {
-      this.plBodyContainer.setY(this.lastBsHeight + this.panelGap);
-    } else {
-      this.plBodyContainer.setY(0);
+  private updateLayout(): void {
+    const wanted = this.isBsExpanded && this.isPlExpanded ? 'side' : 'stacked';
+    if (wanted !== this.layout) {
+      this.layout = wanted;
+      if (this.lastBalanceSheet) {
+        this.update(this.lastBalanceSheet);
+      }
+      if (this.lastIncomeStatement) {
+        this.renderIncomeStatement(this.lastIncomeStatement);
+      }
     }
+    this.fitPanels();
+  }
+
+  private applyGeometry(panel: 'bs' | 'pl'): void {
+    if (this.layout === 'side') {
+      this.panelWidth = Scorecard.SIDE_PANEL_WIDTH;
+      this.panelX = panel === 'bs'
+        ? Scorecard.SIDE_MARGIN
+        : GAME_WIDTH - Scorecard.SIDE_MARGIN - Scorecard.SIDE_PANEL_WIDTH;
+    } else {
+      this.panelWidth = Scorecard.FULL_PANEL_WIDTH;
+      this.panelX = (GAME_WIDTH - Scorecard.FULL_PANEL_WIDTH) / 2;
+    }
+    this.halfWidth = this.panelWidth / 2;
+  }
+
+  /**
+   * Keep the open panels on screen. Normally they must stay above the VN dialog box; on a small
+   * display they are drawn over it instead (one panel at a time, so it gets the whole height).
+   * If they are still too tall (many accounts) the group is scaled down: the top edge stays at
+   * basePanelY and the horizontal centre stays put.
+   */
+  private fitPanels(): void {
+    const compact = this.isCompactDisplay();
+    const bsHeight = this.isBsExpanded ? this.lastBsHeight : 0;
+    const plHeight = this.isPlExpanded ? this.lastPlHeight : 0;
+    // Side by side the panels share the height; stacked (only one is open) it is that panel's height
+    const total = this.layout === 'side' ? Math.max(bsHeight, plHeight) : bsHeight + plHeight;
+    const bottom = compact ? GAME_HEIGHT - 12 : VN_DIALOG_TOP;
+    const available = bottom - this.basePanelY;
+    const scale = total > available ? Math.max(this.minPanelScale, available / total) : 1;
+
+    this.setDepth(compact ? DEPTH.DIALOG + 5 : DEPTH.UI_PANEL);
+    this.panelGroup.setScale(scale);
+    this.panelGroup.setPosition(
+      (GAME_WIDTH / 2) * (1 - scale),
+      this.basePanelY * (1 - scale)
+    );
   }
 
   get bsExpanded(): boolean {
@@ -744,6 +810,7 @@ export class Scorecard extends Phaser.GameObjects.Container {
     if (this.scene) {
       this.scene.input.keyboard?.off('keydown-B', this.onKeyB);
       this.scene.input.keyboard?.off('keydown-P', this.onKeyP);
+      this.scene.scale.off('resize', this.onResize, this);
     }
     super.destroy();
   }
