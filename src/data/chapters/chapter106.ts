@@ -207,8 +207,27 @@ const nodes: ScriptNode[] = [
     type: 'transaction',
     descriptionKey: 'ch106.cash_shortage.desc',
     entries: [
-      { account: 'MISCELLANEOUS_EXPENSE', debit: 30 },
+      { account: 'CASH_OVER_SHORT', debit: 30 },
       { account: 'PETTY_CASH', credit: 30 },
+    ],
+    showAnimation: true,
+    next: 'dialog_shortage_settle',
+  },
+  {
+    id: 'dialog_shortage_settle',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch106.dialog_shortage_settle',
+    expression: 'thinking',
+    next: 'cash_shortage_settle',
+  },
+  {
+    id: 'cash_shortage_settle',
+    type: 'transaction',
+    descriptionKey: 'ch106.cash_shortage_settle.desc',
+    entries: [
+      { account: 'MISCELLANEOUS_LOSS', debit: 30 },
+      { account: 'CASH_OVER_SHORT', credit: 30 },
     ],
     showAnimation: true,
     next: 'dialog_shortage_done',

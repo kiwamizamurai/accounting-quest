@@ -1,5 +1,5 @@
 import { GameState, createInitialGameState } from '../models/GameState';
-import { AccountCategory } from '../models/Account';
+import { Account, AccountCategory, ALL_ACCOUNT_DEFS, createAccount, getAccountDefsForLevel } from '../models/Account';
 import { JournalEntry, GameDate } from '../models/Transaction';
 import { AccountingEngine } from '../engine/accounting/AccountingEngine';
 import { TransactionProcessor } from '../engine/accounting/TransactionProcessor';
@@ -319,7 +319,7 @@ export class GameStateManager {
     const manager = new GameStateManager(data.player.name);
     manager.state = {
       ...data,
-      accounts: new Map(data.accounts),
+      accounts: GameStateManager.reconcileAccounts(new Map(data.accounts)),
       chapterProgress: new Map(data.chapterProgress ?? []),
     };
 
@@ -330,6 +330,29 @@ export class GameStateManager {
     manager.transactionProcessor = new TransactionProcessor(manager.state.player.currentChapter);
 
     return manager;
+  }
+
+  /**
+   * Bring the accounts of a loaded save in line with the current account definitions.
+   * Saves made before an account was added would otherwise fail every entry that uses it
+   * ("Account not found"), and accounts that were removed would linger in the pickers.
+   * The game level is not stored, so it is taken from the highest level among the saved accounts.
+   */
+  private static reconcileAccounts(accounts: Map<AccountCategory, Account>): Map<AccountCategory, Account> {
+    const level = Math.max(1, ...[...accounts.values()].map(account => account.level ?? 1)) as 1 | 2 | 3;
+    const known = new Set<string>(ALL_ACCOUNT_DEFS.map(def => def.category));
+
+    for (const [category, account] of accounts) {
+      if (!known.has(category) && account.balance === 0) {
+        accounts.delete(category);
+      }
+    }
+    for (const def of getAccountDefsForLevel(level)) {
+      if (!accounts.has(def.category)) {
+        accounts.set(def.category, createAccount(def.category, def.name, def.nameJa, def.level));
+      }
+    }
+    return accounts;
   }
 }
 

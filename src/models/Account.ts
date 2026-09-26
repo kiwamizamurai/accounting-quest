@@ -25,6 +25,8 @@ export enum AccountCategory {
 
   // Lv2 - Current Assets
   PETTY_CASH = 'PETTY_CASH',
+  CASH_OVER_SHORT = 'CASH_OVER_SHORT',
+  CARRIED_FORWARD_INVENTORY = 'CARRIED_FORWARD_INVENTORY',
   CHECKING_ACCOUNT = 'CHECKING_ACCOUNT',
   SAVINGS_ACCOUNT = 'SAVINGS_ACCOUNT',
   TIME_DEPOSIT = 'TIME_DEPOSIT',
@@ -137,6 +139,8 @@ export enum AccountCategory {
   TAXES_AND_DUES = 'TAXES_AND_DUES',
   REPAIR_EXPENSE = 'REPAIR_EXPENSE',
   MISCELLANEOUS_EXPENSE = 'MISCELLANEOUS_EXPENSE',
+  MISCELLANEOUS_LOSS = 'MISCELLANEOUS_LOSS',
+  PURCHASES = 'PURCHASES',
   ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE = 'ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE',
   LOSS_ON_SALE_OF_FIXED_ASSETS = 'LOSS_ON_SALE_OF_FIXED_ASSETS',
   TAX_EXPENSE = 'TAX_EXPENSE',
@@ -174,6 +178,8 @@ export function getAccountType(category: AccountCategory): AccountType {
     [AccountCategory.EQUIPMENT]: AccountType.ASSET,
     [AccountCategory.ACCUMULATED_DEPRECIATION]: AccountType.ASSET,
     [AccountCategory.PETTY_CASH]: AccountType.ASSET,
+    [AccountCategory.CASH_OVER_SHORT]: AccountType.ASSET,
+    [AccountCategory.CARRIED_FORWARD_INVENTORY]: AccountType.ASSET,
     [AccountCategory.CHECKING_ACCOUNT]: AccountType.ASSET,
     [AccountCategory.SAVINGS_ACCOUNT]: AccountType.ASSET,
     [AccountCategory.TIME_DEPOSIT]: AccountType.ASSET,
@@ -266,6 +272,8 @@ export function getAccountType(category: AccountCategory): AccountType {
     [AccountCategory.TAXES_AND_DUES]: AccountType.EXPENSE,
     [AccountCategory.REPAIR_EXPENSE]: AccountType.EXPENSE,
     [AccountCategory.MISCELLANEOUS_EXPENSE]: AccountType.EXPENSE,
+    [AccountCategory.MISCELLANEOUS_LOSS]: AccountType.EXPENSE,
+    [AccountCategory.PURCHASES]: AccountType.EXPENSE,
     [AccountCategory.ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE]: AccountType.EXPENSE,
     [AccountCategory.LOSS_ON_SALE_OF_FIXED_ASSETS]: AccountType.EXPENSE,
     [AccountCategory.TAX_EXPENSE]: AccountType.EXPENSE,
@@ -304,6 +312,8 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
 
   // Lv2 - Current Assets
   { category: AccountCategory.PETTY_CASH, name: 'Petty Cash', nameJa: '小口現金', level: 2 },
+  { category: AccountCategory.CASH_OVER_SHORT, name: 'Cash Over/Short', nameJa: '現金過不足', level: 2 },
+  { category: AccountCategory.CARRIED_FORWARD_INVENTORY, name: 'Merchandise Carried Forward', nameJa: '繰越商品', level: 2 },
   { category: AccountCategory.CHECKING_ACCOUNT, name: 'Checking Account', nameJa: '当座預金', level: 2 },
   { category: AccountCategory.SAVINGS_ACCOUNT, name: 'Savings Account', nameJa: '普通預金', level: 2 },
   { category: AccountCategory.TIME_DEPOSIT, name: 'Time Deposit', nameJa: '定期預金', level: 2 },
@@ -399,7 +409,6 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
   { category: AccountCategory.WAGES_EXPENSE, name: 'Wages Expense', nameJa: '給料', level: 1 },
   { category: AccountCategory.RENT_EXPENSE, name: 'Rent Expense', nameJa: '家賃', level: 1 },
   { category: AccountCategory.UTILITIES_EXPENSE, name: 'Utilities Expense', nameJa: '水道光熱費', level: 1 },
-  { category: AccountCategory.SUPPLIES_EXPENSE, name: 'Supplies Expense', nameJa: '消耗品費', level: 1 },
   { category: AccountCategory.DEPRECIATION_EXPENSE, name: 'Depreciation Expense', nameJa: '減価償却費', level: 1 },
   { category: AccountCategory.INTEREST_EXPENSE, name: 'Interest Expense', nameJa: '支払利息', level: 1 },
   { category: AccountCategory.BAD_DEBT_EXPENSE, name: 'Bad Debt Expense', nameJa: '貸倒損失', level: 1 },
@@ -417,6 +426,8 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
   { category: AccountCategory.TAXES_AND_DUES, name: 'Taxes and Dues', nameJa: '租税公課', level: 2 },
   { category: AccountCategory.REPAIR_EXPENSE, name: 'Repair Expense', nameJa: '修繕費', level: 2 },
   { category: AccountCategory.MISCELLANEOUS_EXPENSE, name: 'Miscellaneous Expense', nameJa: '雑費', level: 2 },
+  { category: AccountCategory.MISCELLANEOUS_LOSS, name: 'Miscellaneous Loss', nameJa: '雑損', level: 2 },
+  { category: AccountCategory.PURCHASES, name: 'Purchases', nameJa: '仕入', level: 2 },
   { category: AccountCategory.ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE, name: 'Allowance for Doubtful Accounts Expense', nameJa: '貸倒引当金繰入', level: 2 },
   { category: AccountCategory.LOSS_ON_SALE_OF_FIXED_ASSETS, name: 'Loss on Sale of Fixed Assets', nameJa: '固定資産売却損', level: 2 },
 

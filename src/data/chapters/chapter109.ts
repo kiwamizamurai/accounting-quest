@@ -134,7 +134,7 @@ const nodes: ScriptNode[] = [
     next: 'dialog_pattern3_intro',
   },
 
-  // === Pattern 3: Unearned Revenue (brief review) ===
+  // === Pattern 3: Unearned Revenue ===
   {
     id: 'dialog_pattern3_intro',
     type: 'dialog',
@@ -149,6 +149,44 @@ const nodes: ScriptNode[] = [
     speaker: 'mentor',
     textKey: 'ch109.dialog_pattern3_review',
     expression: 'thinking',
+    next: 'rent_received',
+  },
+  {
+    id: 'rent_received',
+    type: 'transaction',
+    descriptionKey: 'ch109.rent_received.desc',
+    entries: [
+      { account: 'CHECKING_ACCOUNT', debit: 1200 },
+      { account: 'RENT_INCOME', credit: 1200 },
+    ],
+    showAnimation: true,
+    next: 'dialog_pattern3_adjust',
+  },
+  {
+    id: 'dialog_pattern3_adjust',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch109.dialog_pattern3_adjust',
+    expression: 'thinking',
+    next: 'unearned_adjust',
+  },
+  {
+    id: 'unearned_adjust',
+    type: 'transaction',
+    descriptionKey: 'ch109.unearned_adjust.desc',
+    entries: [
+      { account: 'RENT_INCOME', debit: 400 },
+      { account: 'UNEARNED_REVENUE', credit: 400 },
+    ],
+    showAnimation: true,
+    next: 'dialog_pattern3_after',
+  },
+  {
+    id: 'dialog_pattern3_after',
+    type: 'dialog',
+    speaker: 'mentor',
+    textKey: 'ch109.dialog_pattern3_after',
+    expression: 'normal',
     next: 'dialog_pattern4_intro',
   },
 

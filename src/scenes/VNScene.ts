@@ -4,16 +4,18 @@ import { ScriptEngine, ScriptEngineCallback } from '../vn/ScriptEngine';
 import { CharacterPosition } from '../vn/types';
 import { getGameStateManager } from '../state/GameStateManager';
 import { SaveLoadManager } from '../state/SaveLoadManager';
-import { getLanguage, setLanguage } from '../i18n';
+import { getLanguage, setLanguage, t } from '../i18n';
 import { getAudioManager } from '../managers/AudioManager';
 import { Button } from '../ui/components/Button';
 import { COLORS } from '../config/constants';
 import { VNDialogBox } from '../ui/vn/VNDialogBox';
 import { ChoicePanel } from '../ui/vn/ChoicePanel';
+import { JournalEntryPanel } from '../ui/vn/JournalEntryPanel';
 import { CharacterPortrait } from '../ui/vn/CharacterPortrait';
 import { BackgroundRenderer } from '../ui/vn/BackgroundRenderer';
 import { TransactionAnimation } from '../ui/vn/TransactionAnimation';
 import { Scorecard } from '../ui/components/Scorecard';
+import { formatMoney } from '../utils/MoneyFormatter';
 import { chapter1 } from '../data/chapters/chapter1';
 import { chapter2 } from '../data/chapters/chapter2';
 import { chapter3 } from '../data/chapters/chapter3';
@@ -58,6 +60,7 @@ export class VNScene extends Phaser.Scene {
   private scriptEngine!: ScriptEngine;
   private dialogBox!: VNDialogBox;
   private choicePanel!: ChoicePanel;
+  private journalEntryPanel!: JournalEntryPanel;
   private backgroundRenderer!: BackgroundRenderer;
   private transactionAnim!: TransactionAnimation;
   private scorecard!: Scorecard;
@@ -105,6 +108,7 @@ export class VNScene extends Phaser.Scene {
     // UI components
     this.dialogBox = new VNDialogBox(this);
     this.choicePanel = new ChoicePanel(this);
+    this.journalEntryPanel = new JournalEntryPanel(this);
     this.transactionAnim = new TransactionAnimation(this);
 
     // Scorecard (reused from RPG)
@@ -367,36 +371,37 @@ export class VNScene extends Phaser.Scene {
 
       onJournalEntryInput: (prompt, expectedEntries, correctFeedback, incorrectFeedback, hint) => {
         this.dialogBox.hide();
-        // Show the prompt as narration, then present entry options as choices
-        const hintText = hint ? `\n${hint}` : '';
-        const displayPrompt = `${prompt}${hintText}`;
-        // For now, present as a simplified choice between correct and incorrect entries
-        const wrongEntries = expectedEntries.map(e => ({
-          ...e,
-          debit: e.credit,
-          credit: e.debit,
-        }));
-        const choices = [
-          { labelKey: expectedEntries.map(e => `${e.account}: Dr ${e.debit ?? 0} / Cr ${e.credit ?? 0}`).join(', '), next: '' },
-          { labelKey: wrongEntries.map(e => `${e.account}: Dr ${e.debit ?? 0} / Cr ${e.credit ?? 0}`).join(', '), next: '' },
-        ];
-        // Randomize order
-        const correctFirst = Math.random() < 0.5;
-        const orderedChoices = correctFirst ? choices : [choices[1], choices[0]];
-        const correctIdx = correctFirst ? 0 : 1;
+        this.choicePanel.hide();
+        const lang = getLanguage();
 
-        this.choicePanel.show(displayPrompt, orderedChoices, (selectedIndex) => {
-          const isCorrect = selectedIndex === correctIdx;
-          if (isCorrect) {
-            this.scriptEngine.submitJournalEntry(expectedEntries);
-          } else {
-            this.scriptEngine.submitJournalEntry(wrongEntries);
-          }
-          const feedback = isCorrect ? correctFeedback : incorrectFeedback;
-          this.dialogBox.showNarration(feedback, () => {
-            this.updateScorecard();
-            this.scriptEngine.advance();
-          });
+        // Accounts the player can choose from: the ones that exist at this game level
+        const accounts = [...getGameStateManager().getAccounts().values()].map(account => ({
+          category: account.category as string,
+          label: lang === 'ja' ? account.nameJa : account.name,
+          type: account.type,
+        }));
+        const labelOf = (category: string): string => accounts.find(a => a.category === category)?.label ?? category;
+        const sideText = (side: 'debit' | 'credit'): string =>
+          expectedEntries
+            .filter(entry => (entry[side] ?? 0) > 0)
+            .map(entry => `${labelOf(entry.account)} ${formatMoney(entry[side] as number)}`)
+            .join(lang === 'ja' ? '、' : ', ');
+
+        this.journalEntryPanel.show({
+          prompt,
+          hint,
+          debitCount: expectedEntries.filter(entry => (entry.debit ?? 0) > 0).length,
+          creditCount: expectedEntries.filter(entry => (entry.credit ?? 0) > 0).length,
+          accounts,
+          expected: expectedEntries,
+          correctAnswer: `${t('je.debit')} ${sideText('debit')} / ${t('je.credit')} ${sideText('credit')}`,
+          onSubmit: entries => this.scriptEngine.submitJournalEntry(entries),
+          onClose: isCorrect => {
+            this.dialogBox.showNarration(isCorrect ? correctFeedback : incorrectFeedback, () => {
+              this.updateScorecard();
+              this.scriptEngine.advance();
+            });
+          },
         });
       },
     };

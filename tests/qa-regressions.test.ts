@@ -210,3 +210,23 @@ describe('Auto-save', () => {
     expect(restored!.getPlayer().currentChapter).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Loading a save made before the account definitions changed
+// ---------------------------------------------------------------------------
+describe('Loading an older save', () => {
+  it('adds accounts defined after the save was made and drops removed, unused ones', () => {
+    const json = JSON.parse(new GameStateManager('Tester', 2).toJSON());
+    // A save from before CASH_OVER_SHORT existed, that still has the removed SUPPLIES_EXPENSE account
+    json.accounts = json.accounts.filter(([category]: [string]) => category !== 'CASH_OVER_SHORT');
+    json.accounts.push([
+      'SUPPLIES_EXPENSE',
+      { id: 'SUPPLIES_EXPENSE', name: 'Supplies Expense', nameJa: '消耗品費', type: 'EXPENSE', category: 'SUPPLIES_EXPENSE', balance: 0, normalBalance: 'DEBIT', level: 1 },
+    ]);
+
+    const restored = GameStateManager.fromJSON(JSON.stringify(json));
+
+    expect(restored.getAccounts().has(AccountCategory.CASH_OVER_SHORT)).toBe(true);
+    expect(restored.getAccounts().has(AccountCategory.SUPPLIES_EXPENSE)).toBe(false);
+  });
+});
