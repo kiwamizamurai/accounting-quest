@@ -1,30 +1,41 @@
 import Phaser from 'phaser';
-import { DEPTH, GAME_WIDTH, GAME_HEIGHT, VN_CHOICE_PROMPT_Y, FONT_FAMILY } from '../../config/constants';
+import { DEPTH, FONT_FAMILY } from '../../config/constants';
+import { VIEW_WIDTH, HUD_HEIGHT, getVNLayout } from '../../config/layout';
 import { ChoiceOption } from '../../vn/types';
 import { t } from '../../i18n';
 
-/** Scene events, so the BS/PL panels (Scorecard) can keep clear of the prompt while it is shown. */
-export const CHOICE_PANEL_SHOWN = 'choicepanel:shown';
-export const CHOICE_PANEL_HIDDEN = 'choicepanel:hidden';
+const PANEL_MARGIN = 10;
+const PANEL_PADDING = 12;
+const CHOICE_MIN_HEIGHT = 48;
+const CHOICE_GAP = 8;
+const BADGE_SIZE = 28;
 
+/**
+ * Choice / quiz prompt: a sheet rising from the bottom of the screen with the question on top and
+ * one full-width button per answer, so every answer is a large tap target under the thumb.
+ */
 export class ChoicePanel extends Phaser.GameObjects.Container {
+  private panelBg: Phaser.GameObjects.Graphics;
   private promptText: Phaser.GameObjects.Text;
   private choiceContainers: Phaser.GameObjects.Container[] = [];
   private onSelect?: (index: number) => void;
   private selectedIndex = -1;
+  private suspended = false;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.promptText = scene.add.text(GAME_WIDTH / 2, VN_CHOICE_PROMPT_Y, '', {
+    this.panelBg = scene.add.graphics();
+    this.add(this.panelBg);
+
+    this.promptText = scene.add.text(0, 0, '', {
       fontFamily: FONT_FAMILY,
-      fontSize: '18px',
+      fontSize: '16px',
       color: '#ffd700',
       fontStyle: 'bold',
-      align: 'center',
+      lineSpacing: 5,
       padding: { top: 4, bottom: 4 },
     });
-    this.promptText.setOrigin(0.5);
     this.add(this.promptText);
 
     this.setDepth(DEPTH.DIALOG + 10);
@@ -36,55 +47,81 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
   show(prompt: string, choices: ChoiceOption[], onSelect: (index: number) => void): void {
     this.clearChoices();
     // Remove previous keyboard listeners before adding new ones
-    this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
-    this.scene.input.keyboard?.off('keydown-DOWN', this.navigateDown, this);
-    this.scene.input.keyboard?.off('keydown-ENTER', this.confirmSelection, this);
-    this.scene.input.keyboard?.off('keydown-SPACE', this.confirmSelection, this);
+    this.removeKeyboard();
 
-    this.promptText.setText(prompt);
     this.onSelect = onSelect;
     this.selectedIndex = 0;
-
-    const startY = GAME_HEIGHT - 180;
-    const choiceHeight = 48;
-    const choiceWidth = 400;
-    const maxVisibleChoices = Math.floor((GAME_HEIGHT - startY) / (choiceHeight + 12));
-    const visibleChoices = choices.slice(0, maxVisibleChoices);
-
-    visibleChoices.forEach((choice, index) => {
-      const y = startY + index * (choiceHeight + 12);
-      const container = this.createChoiceButton(
-        GAME_WIDTH / 2,
-        y,
-        choiceWidth,
-        choiceHeight,
-        t(choice.labelKey),
-        index
-      );
-      this.choiceContainers.push(container);
-    });
+    this.build(prompt, choices.map(choice => t(choice.labelKey)));
 
     // Keyboard navigation
     this.scene.input.keyboard?.on('keydown-UP', this.navigateUp, this);
     this.scene.input.keyboard?.on('keydown-DOWN', this.navigateDown, this);
     this.scene.input.keyboard?.on('keydown-ENTER', this.confirmSelection, this);
     this.scene.input.keyboard?.on('keydown-SPACE', this.confirmSelection, this);
+    this.scene.input.keyboard?.on('keydown', this.pressNumber, this);
 
     this.updateHighlight();
-    this.setVisible(true);
-    this.scene.events.emit(CHOICE_PANEL_SHOWN);
+    this.setVisible(!this.suspended);
   }
 
   hide(): void {
-    if (this.visible) {
-      this.scene.events.emit(CHOICE_PANEL_HIDDEN);
-    }
     this.setVisible(false);
     this.clearChoices();
-    this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
-    this.scene.input.keyboard?.off('keydown-DOWN', this.navigateDown, this);
-    this.scene.input.keyboard?.off('keydown-ENTER', this.confirmSelection, this);
-    this.scene.input.keyboard?.off('keydown-SPACE', this.confirmSelection, this);
+    this.removeKeyboard();
+  }
+
+  /** Hide the panel without forgetting its choices (a report sheet is shown over it), or bring it back. */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended;
+    if (this.choiceContainers.length > 0) {
+      this.setVisible(!suspended);
+    }
+  }
+
+  private build(prompt: string, labels: string[]): void {
+    const { strip } = getVNLayout();
+    const width = VIEW_WIDTH - PANEL_MARGIN * 2;
+    const inner = width - PANEL_PADDING * 2;
+    const bottom = strip.y - 6;
+
+    this.promptText.setWordWrapWidth(inner, true);
+    this.promptText.setText(prompt);
+
+    // Measure every answer, then size the sheet to fit them
+    const labelWidth = inner - BADGE_SIZE - 20;
+    const measured = labels.map(label => {
+      const text = this.scene.add.text(0, 0, label, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '15px',
+        color: '#ffffff',
+        wordWrap: { width: labelWidth, useAdvancedWrap: true },
+        lineSpacing: 3,
+        padding: { top: 3, bottom: 3 },
+      });
+      text.setOrigin(0, 0.5);
+      return { text, height: Math.max(CHOICE_MIN_HEIGHT, Math.ceil(text.height) + 16) };
+    });
+
+    const buttonsHeight = measured.reduce((sum, m) => sum + m.height, 0) + CHOICE_GAP * (measured.length - 1);
+    const total = PANEL_PADDING + this.promptText.height + 8 + buttonsHeight + PANEL_PADDING;
+    // Never grow into the HUD: an unusually long prompt is cut from the top instead
+    const top = Math.max(HUD_HEIGHT + 8, bottom - total);
+    const x = PANEL_MARGIN;
+
+    this.panelBg.clear();
+    this.panelBg.fillStyle(0x0a0a1e, 0.97);
+    this.panelBg.fillRoundedRect(x, top, width, bottom - top, 14);
+    this.panelBg.lineStyle(2, 0x4a90d9, 0.8);
+    this.panelBg.strokeRoundedRect(x, top, width, bottom - top, 14);
+
+    this.promptText.setPosition(x + PANEL_PADDING, top + PANEL_PADDING - 2);
+
+    let y = top + PANEL_PADDING + this.promptText.height + 8;
+    measured.forEach((m, index) => {
+      const container = this.createChoiceButton(x + PANEL_PADDING, y, inner, m.height, m.text, index);
+      this.choiceContainers.push(container);
+      y += m.height + CHOICE_GAP;
+    });
   }
 
   private createChoiceButton(
@@ -92,29 +129,33 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     y: number,
     width: number,
     height: number,
-    text: string,
+    label: Phaser.GameObjects.Text,
     index: number
   ): Phaser.GameObjects.Container {
     const container = this.scene.add.container(x, y);
 
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x1a1a3e, 0.9);
-    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 6);
-    bg.lineStyle(2, 0x4a90d9, 0.8);
-    bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 6);
     container.add(bg);
 
-    const label = this.scene.add.text(0, 0, text, {
+    const badge = this.scene.add.graphics();
+    badge.fillStyle(0x2a3a6e, 1);
+    badge.fillCircle(PANEL_PADDING + BADGE_SIZE / 2 - 4, height / 2, BADGE_SIZE / 2);
+    container.add(badge);
+    const badgeText = this.scene.add.text(PANEL_PADDING + BADGE_SIZE / 2 - 4, height / 2, String.fromCharCode(65 + index), {
       fontFamily: FONT_FAMILY,
-      fontSize: '16px',
+      fontSize: '14px',
       color: '#ffffff',
-      padding: { top: 4, bottom: 4 },
+      fontStyle: 'bold',
+      padding: { top: 3, bottom: 3 },
     });
-    label.setOrigin(0.5);
+    badgeText.setOrigin(0.5);
+    container.add(badgeText);
+
+    label.setPosition(PANEL_PADDING + BADGE_SIZE + 6, height / 2);
     container.add(label);
 
-    // Hit zone
-    const hitZone = this.scene.add.zone(0, 0, width, height);
+    // Hit zone covers the whole button
+    const hitZone = this.scene.add.zone(width / 2, height / 2, width, height);
     hitZone.setInteractive({ useHandCursor: true });
     container.add(hitZone);
 
@@ -124,6 +165,8 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     });
 
     hitZone.on('pointerdown', () => {
+      this.selectedIndex = index;
+      this.updateHighlight();
       this.selectChoice(index);
     });
 
@@ -146,15 +189,15 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
       bg.clear();
       if (index === this.selectedIndex) {
         bg.fillStyle(0x2a3a6e, 0.95);
-        bg.fillRoundedRect(-width / 2, -height / 2, width, height, 6);
+        bg.fillRoundedRect(0, 0, width, height, 10);
         bg.lineStyle(2, 0xffd700, 1);
-        bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 6);
+        bg.strokeRoundedRect(0, 0, width, height, 10);
         label.setColor('#ffd700');
       } else {
-        bg.fillStyle(0x1a1a3e, 0.9);
-        bg.fillRoundedRect(-width / 2, -height / 2, width, height, 6);
+        bg.fillStyle(0x1a1a3e, 0.95);
+        bg.fillRoundedRect(0, 0, width, height, 10);
         bg.lineStyle(2, 0x4a90d9, 0.8);
-        bg.strokeRoundedRect(-width / 2, -height / 2, width, height, 6);
+        bg.strokeRoundedRect(0, 0, width, height, 10);
         label.setColor('#ffffff');
       }
     });
@@ -181,14 +224,31 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     this.selectChoice(this.selectedIndex);
   };
 
+  /** 1-9 pick the answer with that number. */
+  private pressNumber = (event: KeyboardEvent): void => {
+    if (!this.visible || !/^[1-9]$/.test(event.key)) return;
+    const index = Number(event.key) - 1;
+    if (index < this.choiceContainers.length) {
+      this.selectedIndex = index;
+      this.updateHighlight();
+      this.selectChoice(index);
+    }
+  };
+
   private selectChoice(index: number): void {
     // Flash animation
     const container = this.choiceContainers[index];
     if (container) {
+      // Only the first tap counts while the flash plays
+      this.removeKeyboard();
+      for (const other of this.choiceContainers) {
+        other.each((child: Phaser.GameObjects.GameObject) => {
+          if (child.input) child.disableInteractive();
+        });
+      }
       this.scene.tweens.add({
         targets: container,
-        scaleX: 1.05,
-        scaleY: 1.05,
+        alpha: 0.6,
         duration: 100,
         yoyo: true,
         onComplete: () => {
@@ -201,19 +261,26 @@ export class ChoicePanel extends Phaser.GameObjects.Container {
     }
   }
 
+  private removeKeyboard(): void {
+    this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
+    this.scene.input.keyboard?.off('keydown-DOWN', this.navigateDown, this);
+    this.scene.input.keyboard?.off('keydown-ENTER', this.confirmSelection, this);
+    this.scene.input.keyboard?.off('keydown-SPACE', this.confirmSelection, this);
+    this.scene.input.keyboard?.off('keydown', this.pressNumber, this);
+  }
+
   private clearChoices(): void {
     for (const container of this.choiceContainers) {
       container.destroy();
     }
     this.choiceContainers = [];
+    this.panelBg.clear();
+    this.promptText.setText('');
   }
 
   destroy(): void {
     if (this.scene) {
-      this.scene.input.keyboard?.off('keydown-UP', this.navigateUp, this);
-      this.scene.input.keyboard?.off('keydown-DOWN', this.navigateDown, this);
-      this.scene.input.keyboard?.off('keydown-ENTER', this.confirmSelection, this);
-      this.scene.input.keyboard?.off('keydown-SPACE', this.confirmSelection, this);
+      this.removeKeyboard();
     }
     this.clearChoices();
     super.destroy();

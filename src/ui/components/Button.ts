@@ -13,7 +13,7 @@ export interface ButtonConfig {
 }
 
 /**
- * Pixel-art style button component
+ * Menu button: rounded, with a shadow, at least 44px tall by default so it is easy to tap
  */
 export class Button extends Phaser.GameObjects.Container {
   private background: Phaser.GameObjects.Graphics;
@@ -27,7 +27,7 @@ export class Button extends Phaser.GameObjects.Container {
     super(scene, config.x, config.y);
 
     this.buttonWidth = config.width ?? 160;
-    this.buttonHeight = config.height ?? 40;
+    this.buttonHeight = config.height ?? 48;
     this.isDisabled = config.disabled ?? false;
     this.onClick = config.onClick;
 
@@ -96,20 +96,20 @@ export class Button extends Phaser.GameObjects.Container {
 
     // Shadow
     this.background.fillStyle(0x000000, 0.3);
-    this.background.fillRoundedRect(x + 2, y + shadowOffset, w, h, 4);
+    this.background.fillRoundedRect(x + 2, y + shadowOffset, w, h, 10);
 
     // Main button
     this.background.fillStyle(fillColor);
-    this.background.fillRoundedRect(x, y, w, h, 4);
+    this.background.fillRoundedRect(x, y, w, h, 10);
 
     // Border
     this.background.lineStyle(2, borderColor);
-    this.background.strokeRoundedRect(x, y, w, h, 4);
+    this.background.strokeRoundedRect(x, y, w, h, 10);
 
     // Highlight
     if (!this.isDisabled && state !== 'pressed') {
       this.background.lineStyle(1, 0xffffff, 0.2);
-      this.background.lineBetween(x + 4, y + 4, x + w - 4, y + 4);
+      this.background.lineBetween(x + 10, y + 3, x + w - 10, y + 3);
     }
   }
 

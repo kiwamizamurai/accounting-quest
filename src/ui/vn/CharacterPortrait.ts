@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
 import { CharacterExpression } from '../../vn/types';
 import { CHARACTERS } from '../../data/characters';
-import { GAME_HEIGHT, VN_DIALOG_HEIGHT, VN_DIALOG_MARGIN } from '../../config/constants';
 
-const PORTRAIT_HEIGHT = 240;
+/** Where a character's feet stand in the 800x600 scene art (on the ground, below the horizon). */
+export const CHARACTER_FEET_Y = 520;
+// The sprite reaches 100px below its origin
+const FEET_OFFSET = 100;
+// Characters are drawn larger than the sprite so they read on the narrow stage
+const PORTRAIT_SCALE = 1.2;
 
 export class CharacterPortrait extends Phaser.GameObjects.Container {
   private characterId: string;
@@ -11,8 +15,8 @@ export class CharacterPortrait extends Phaser.GameObjects.Container {
   private portraitGraphics: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, characterId: string, x: number) {
-    // Stand right on top of the dialog box
-    super(scene, x, GAME_HEIGHT - VN_DIALOG_HEIGHT - VN_DIALOG_MARGIN - PORTRAIT_HEIGHT / 2);
+    super(scene, x, CHARACTER_FEET_Y - FEET_OFFSET * PORTRAIT_SCALE);
+    this.setScale(PORTRAIT_SCALE);
     this.characterId = characterId;
 
     this.portraitGraphics = scene.add.graphics();

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { SCENES, COLORS, GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY, TITLE_ICON_KEY } from '../config/constants';
+import { SCENES, COLORS, FONT_FAMILY, TITLE_ICON_KEY } from '../config/constants';
+import { VIEW_WIDTH, getViewHeight } from '../config/layout';
 import { applyRenderScale } from '../utils/renderScale';
 import { getAudioManager } from '../managers/AudioManager';
 
@@ -13,8 +14,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    const width = GAME_WIDTH;
-    const height = GAME_HEIGHT;
+    const width = VIEW_WIDTH;
+    const height = getViewHeight();
 
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
       fontFamily: FONT_FAMILY,
@@ -26,14 +27,14 @@ export class BootScene extends Phaser.Scene {
 
     const progressBarBg = this.add.graphics();
     progressBarBg.fillStyle(0x2d2d44, 1);
-    progressBarBg.fillRect(width / 2 - 150, height / 2, 300, 30);
+    progressBarBg.fillRect(width / 2 - 130, height / 2, 260, 30);
 
     const progressBar = this.add.graphics();
 
     this.load.on('progress', (value: number) => {
       progressBar.clear();
       progressBar.fillStyle(COLORS.ASSETS, 1);
-      progressBar.fillRect(width / 2 - 145, height / 2 + 5, 290 * value, 20);
+      progressBar.fillRect(width / 2 - 125, height / 2 + 5, 250 * value, 20);
     });
 
     this.load.on('complete', () => {

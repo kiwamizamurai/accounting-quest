@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { RENDER_SCALE } from '../config/game.config';
+import { RENDER_SCALE } from '../config/layout';
 
 /**
- * Zoom the scene's camera so the 800x600 world fills the (RENDER_SCALE times larger) canvas.
+ * Zoom the scene's camera so the layout (VIEW_WIDTH wide) fills the (RENDER_SCALE times larger) canvas.
  * Call it first thing in every scene (init or create).
  */
 export function applyRenderScale(scene: Phaser.Scene): void {
