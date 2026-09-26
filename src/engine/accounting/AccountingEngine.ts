@@ -25,6 +25,8 @@ export interface AccountBalance {
   name: string;
   nameJa: string;
   balance: number;
+  /** True for the synthetic "current period net income" row appended to the equity section. */
+  isNetIncome?: boolean;
 }
 
 export class AccountingEngine {
@@ -154,6 +156,7 @@ export class AccountingEngine {
       name: 'Net Income (Current Period)',
       nameJa: '当期純利益',
       balance: incomeStatement.netIncome,
+      isNetIncome: true,
     });
 
     return {

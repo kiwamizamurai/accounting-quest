@@ -480,7 +480,8 @@ export class Scorecard extends Phaser.GameObjects.Container {
     );
     rightY += this.lineHeight;
 
-    for (const e of balanceSheet.equity.filter(e => e.balance !== 0)) {
+    // The net income row is drawn separately below (with its own colour), so skip the synthetic one
+    for (const e of balanceSheet.equity.filter(e => e.balance !== 0 && !e.isNetIncome)) {
       this.addItem(
         this.bsRightContainer,
         lang === 'ja' ? e.nameJa : e.name,

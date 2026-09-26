@@ -143,9 +143,36 @@ export class SaveLoadManager {
   }
 
   /**
-   * Auto-save to slot 0 (hidden auto-save slot)
+   * Check whether an auto-save exists
    */
-  static autoSave(manager: GameStateManager): boolean {
+  static hasAutoSave(): boolean {
+    return localStorage.getItem(`${STORAGE_KEYS.GAME_STATE}_auto`) !== null;
+  }
+
+  /**
+   * Get auto-save info without loading the full state
+   */
+  static getAutoSaveInfo(): Omit<SaveSlot, 'data'> | null {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEYS.GAME_STATE}_auto`);
+      if (!saved) {
+        return null;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { data, ...info } = JSON.parse(saved) as SaveSlot;
+      return info;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Auto-save to slot 0 (hidden auto-save slot)
+   *
+   * @param snapshot Serialized state to store instead of the current state. VNScene passes the
+   *   chapter-start snapshot so that continuing replays the chapter without double-posting entries.
+   */
+  static autoSave(manager: GameStateManager, snapshot?: string): boolean {
     try {
       const key = `${STORAGE_KEYS.GAME_STATE}_auto`;
       const state = manager.getState();
@@ -156,7 +183,7 @@ export class SaveLoadManager {
         level: state.player.level,
         playTime: state.totalPlayTime,
         savedAt: Date.now(),
-        data: manager.toJSON(),
+        data: snapshot ?? manager.toJSON(),
       };
 
       localStorage.setItem(key, JSON.stringify(saveSlot));

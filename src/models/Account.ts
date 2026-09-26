@@ -403,6 +403,7 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
   { category: AccountCategory.DEPRECIATION_EXPENSE, name: 'Depreciation Expense', nameJa: '減価償却費', level: 1 },
   { category: AccountCategory.INTEREST_EXPENSE, name: 'Interest Expense', nameJa: '支払利息', level: 1 },
   { category: AccountCategory.BAD_DEBT_EXPENSE, name: 'Bad Debt Expense', nameJa: '貸倒損失', level: 1 },
+  { category: AccountCategory.TAX_EXPENSE, name: 'Tax Expense', nameJa: '法人税等', level: 1 },
 
   // Lv2
   { category: AccountCategory.SHIPPING_EXPENSE, name: 'Shipping Expense', nameJa: '発送費', level: 2 },
@@ -418,7 +419,6 @@ export const ALL_ACCOUNT_DEFS: AccountDef[] = [
   { category: AccountCategory.MISCELLANEOUS_EXPENSE, name: 'Miscellaneous Expense', nameJa: '雑費', level: 2 },
   { category: AccountCategory.ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_EXPENSE, name: 'Allowance for Doubtful Accounts Expense', nameJa: '貸倒引当金繰入', level: 2 },
   { category: AccountCategory.LOSS_ON_SALE_OF_FIXED_ASSETS, name: 'Loss on Sale of Fixed Assets', nameJa: '固定資産売却損', level: 2 },
-  { category: AccountCategory.TAX_EXPENSE, name: 'Tax Expense', nameJa: '法人税等', level: 2 },
 
   // Lv3
   { category: AccountCategory.LOSS_ON_SALE_OF_SECURITIES, name: 'Loss on Sale of Securities', nameJa: '有価証券売却損', level: 3 },

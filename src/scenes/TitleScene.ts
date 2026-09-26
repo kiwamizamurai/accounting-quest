@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, SCENES, DEPTH } from '../config/constants';
 import { Button } from '../ui/components/Button';
-import { getLanguage, setLanguage } from '../i18n';
+import { getLanguage, setLanguage, t } from '../i18n';
 import { SaveLoadManager } from '../state/SaveLoadManager';
-import { getGameStateManager } from '../state/GameStateManager';
+import { GameStateManager, getGameStateManager } from '../state/GameStateManager';
 import { getAudioManager } from '../managers/AudioManager';
 
 export class TitleScene extends Phaser.Scene {
@@ -44,7 +44,7 @@ export class TitleScene extends Phaser.Scene {
     const lang = getLanguage();
 
     // Title
-    const title = this.add.text(GAME_WIDTH / 2, 120, 'The Accounting Game', {
+    const title = this.add.text(GAME_WIDTH / 2, 120, t('menu.title'), {
       fontFamily: '"Courier New", monospace',
       fontSize: '36px',
       color: '#ffd700',
@@ -105,7 +105,7 @@ export class TitleScene extends Phaser.Scene {
     this.uiElements.push(newGameBtn);
 
     // Continue button
-    const hasSaves = SaveLoadManager.getAllSaveSlots().some(s => s !== null);
+    const hasSaves = SaveLoadManager.getAllSaveSlots().some(s => s !== null) || SaveLoadManager.hasAutoSave();
     const continueBtn = new Button(this, {
       x: GAME_WIDTH / 2,
       y: 370,
@@ -173,7 +173,22 @@ export class TitleScene extends Phaser.Scene {
 
   private showLoadMenu(): void {
     const lang = getLanguage();
-    const slots = SaveLoadManager.getAllSaveSlots();
+    // The auto-save (written by VNScene at the start of each chapter) is listed first
+    const autoInfo = SaveLoadManager.getAutoSaveInfo();
+    const entries: { label: string; info: ReturnType<typeof SaveLoadManager.getAutoSaveInfo>; load: () => GameStateManager | null }[] = [
+      ...(autoInfo
+        ? [{
+            label: lang === 'ja' ? 'オートセーブ' : 'Auto-save',
+            info: autoInfo,
+            load: () => SaveLoadManager.loadAutoSave(),
+          }]
+        : []),
+      ...SaveLoadManager.getAllSaveSlots().map((info, index) => ({
+        label: `Slot ${index + 1}`,
+        info,
+        load: () => SaveLoadManager.loadGame(index + 1),
+      })),
+    ];
 
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.6);
@@ -185,7 +200,7 @@ export class TitleScene extends Phaser.Scene {
     this.uiElements.push(overlay);
 
     const boxWidth = 400;
-    const boxHeight = 300;
+    const boxHeight = 60 * entries.length + 120;
     const boxX = (GAME_WIDTH - boxWidth) / 2;
     const boxY = (GAME_HEIGHT - boxHeight) / 2;
 
@@ -211,19 +226,19 @@ export class TitleScene extends Phaser.Scene {
     titleText.setOrigin(0.5);
     this.uiElements.push(titleText);
 
-    slots.forEach((slot, index) => {
+    entries.forEach((entry, index) => {
       const slotY = boxY + 70 + index * 60;
-      if (slot) {
-        const info = `${slot.playerName} - Ch.${slot.chapter} - ${SaveLoadManager.formatPlayTime(slot.playTime)}`;
+      if (entry.info) {
+        const info = `${entry.info.playerName} - Ch.${entry.info.chapter} - ${SaveLoadManager.formatPlayTime(entry.info.playTime)}`;
         const btn = new Button(this, {
           x: GAME_WIDTH / 2,
           y: slotY,
           width: 340,
           height: 44,
-          text: `Slot ${index + 1}: ${info}`,
+          text: `${entry.label}: ${info}`,
           fontSize: 13,
           onClick: () => {
-            const manager = SaveLoadManager.loadGame(index + 1);
+            const manager = entry.load();
             if (manager) {
               const chapter = manager.getPlayer().currentChapter;
               this.scene.start('VNScene', { chapterId: chapter });
@@ -232,7 +247,7 @@ export class TitleScene extends Phaser.Scene {
         });
         this.uiElements.push(btn);
       } else {
-        const empty = this.add.text(GAME_WIDTH / 2, slotY, `Slot ${index + 1}: ${lang === 'ja' ? '空き' : 'Empty'}`, {
+        const empty = this.add.text(GAME_WIDTH / 2, slotY, `${entry.label}: ${lang === 'ja' ? '空き' : 'Empty'}`, {
           fontFamily: '"Courier New", monospace',
           fontSize: '14px',
           color: '#6a6a8a',
